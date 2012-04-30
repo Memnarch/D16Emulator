@@ -35,6 +35,7 @@
 			<DCC_K>false</DCC_K>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_1)'!=''">
+			<DCC_UnitSearchPath>E:\Git\D16Pascal;E:\Git\D16Pascal\Lexer;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
 			<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
 			<DCC_Optimize>false</DCC_Optimize>
 			<DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
@@ -52,6 +53,9 @@
 			<DCCReference Include="Main.pas">
 				<Form>Form1</Form>
 			</DCCReference>
+			<DCCReference Include="Emulator.pas"/>
+			<DCCReference Include="Operations.pas"/>
+			<DCCReference Include="D16Operations.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
 				<CfgParent>Base</CfgParent>

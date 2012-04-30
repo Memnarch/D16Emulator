@@ -2,7 +2,10 @@ program EmulatorProj;
 
 uses
   Forms,
-  Main in 'Main.pas' {Form1};
+  Main in 'Main.pas' {Form1},
+  Emulator in 'Emulator.pas',
+  Operations in 'Operations.pas',
+  D16Operations in 'D16Operations.pas';
 
 {$R *.res}
 
