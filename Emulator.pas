@@ -3,32 +3,32 @@ unit Emulator;
 interface
 
 uses
-  Classes, Types, SysUtils, Operations;
+  Classes, Types, SysUtils, Generics.Collections, EmuTypes, Operations, VirtualDevice;
 
 type
-  TD16Ram = array[0..$FFFF] of Word;
-  TD16RegisterMem = array[0..11] of Word;
-
-  TEvent = procedure() of object;
 
   TD16Emulator = class
   private
     FRam: TD16Ram;
     FRegisters: TD16RegisterMem;
-    FCycles: Integer;
+    FRefreshCycles: Integer;
     FLastSleep: TDateTime;
     FRunning: Boolean;
     FOnStep: TEvent;
     FOperations: TOperations;
+    FCycles: Cardinal;
+    FDevices: TObjectList<TVirtualDevice>;
     procedure ResetRam();
     procedure ResetRegisters();
     procedure AddCycles(ACycles: Integer);
     function ReadValue(AFromCode: Byte; var AUsedAddress: Integer; AModifySP: Boolean = False): Word;
     procedure WriteValue(AToCode: Byte; AToAdress: Integer; AVal: Word);
-    procedure DecodeWord(AInput: Word; var AOpcode, ALeft, ARight: Byte);
+    procedure DecodeWord(AInput: Word; var AOpcode: Word; var ALeft, ARight: byte);
     function GetAdressForOperand(AOperand: Byte): Integer;
     procedure ExecuteOperation(AOpCode: Byte; var ALeft, ARight: Word);
     procedure DoOnStep();
+    procedure Push(var AVal: Word);
+    procedure Pop(var AVal: Word);
   public
     constructor Create();
     destructor Destroy(); override;
@@ -41,21 +41,9 @@ type
     property Registers: TD16RegisterMem read FRegisters write FRegisters;
     property OnStep: TEvent read FOnStep write FOnStep;
     property Operations: TOperations read FOperations;
+    property Cycles: Cardinal read FCycles write FCycles;
+    property Devices: TObjectList<TVirtualDevice> read FDevices;
   end;
-
-const
-  CRegA = 0;
-  CRegB = 1;
-  CRegC = 2;
-  CRegX = 3;
-  CRegY = 4;
-  CRegZ = 5;
-  CRegI = 6;
-  CRegJ = 7;
-  CRegPC = 8;
-  CRegSP = 9;
-  CRegEX = 10;
-  CRegIA = 11;
 
 implementation
 
@@ -65,14 +53,18 @@ uses
 { TD16Emulator }
 
 procedure TD16Emulator.AddCycles(ACycles: Integer);
+var
+  LSpend: Cardinal;
 begin
+  Inc(FRefreshCycles, ACycles);
   Inc(FCycles, ACycles);
-  if FCycles >= 1000 then
+  if FRefreshCycles >= 2000 then
   begin
-    Dec(FCycles, 1000);
-    if MilliSecondsBetween(FLastSleep, Now()) < 1 then
+    Dec(FRefreshCycles, 2000);
+    LSpend := MilliSecondsBetween(FLastSleep, Now());
+    if LSpend < 20 then
     begin
-      Sleep(1);
+      Sleep(20-LSpend);
     end;
     FLastSleep := Now();
   end;
@@ -80,10 +72,13 @@ end;
 
 constructor TD16Emulator.Create;
 begin
-  FOperations := TD16Operation.Create();
+  FDevices := TObjectList<TVirtualDevice>.Create();
+  FOperations := TD16Operation.Create(@FRegisters, FDevices);
+  FOperations.Push := Push;
+  FOperations.Pop := Pop;
 end;
 
-procedure TD16Emulator.DecodeWord(AInput: Word; var AOpcode, ALeft,
+procedure TD16Emulator.DecodeWord(AInput: Word; var AOpcode: Word; var ALeft,
   ARight: Byte);
 var
   LBaseOp: Byte;
@@ -99,7 +94,7 @@ begin
   end
   else
   begin
-    AOpCode := (AInput shr 5) and $1f;
+    AOpCode := AInput and $3E0; //asking for the second 5 bits. Mas is 1111100000 //(AInput shr 5) and $1f;
     ARight := (AInput shr 10) and $3f;
   end;
 end;
@@ -120,18 +115,29 @@ end;
 
 procedure TD16Emulator.Step;
 var
-  LCode: Word;
-  LOpCode, LLeft, LRight: Byte;
+  LCode, LOpCode: Word;
+  LLeft, LRight: Byte;
   LLeftVal, LRightVal: Word;
   LLeftAddr, LRightAddr: Integer;
 begin
   LCode := FRam[FRegisters[CRegPC]];
   Inc(FRegisters[CRegPC]);
   DecodeWord(LCode, LOpCode, LLeft, LRight);
-  LRightVal := ReadValue(LRight, LRightAddr, True);
+  LRightVal := ReadValue(LRight, LRightAddr, not FOperations.Skipping);
   LLeftVal := ReadValue(LLeft, LLeftAddr);
-  ExecuteOperation(LOpCode, LLeftVal, LRightVal);
-  WriteValue(LLeft, LLeftAddr, LLeftVal);
+  if not FOperations.Skipping then
+  begin
+    ExecuteOperation(LOpCode, LLeftVal, LRightVal);
+    WriteValue(LLeft, LLeftAddr, LLeftVal);
+  end
+  else
+  begin
+    AddCycles(1);
+  end;
+  if (not FOperations.IsBranchCode(LOpCode)) and (FOperations.Skipping) then
+  begin
+    FOperations.Skipping := False;
+  end;
   DoOnStep();
 end;
 
@@ -144,11 +150,15 @@ begin
   begin
     LItem.Operation(ALeft, ARight);
     AddCycles(LItem.Cost);
+    if FOperations.Skipping then
+    begin
+      AddCycles(1);
+    end;
   end
   else
   begin
     Stop();
-    raise EAbort.Create('Unknown Opcode 0x' + IntToHex(AOpCode, 2));
+    raise EAbort.Create('Unknown Opcode 0x' + IntToHex(AOpCode, 4));
   end;
 end;
 
@@ -166,7 +176,10 @@ begin
   if (AOperand >= $10) and (AOperand <= $17) then
   begin
     Result := FRegisters[AOperand-$10] + FRam[FRegisters[CRegPC]];
-    AddCycles(1);
+    if not FOperations.Skipping then
+    begin
+      AddCycles(1);
+    end;
   end;
   if (AOperand  = $18) or (AOperand = $19) then //[sp], push/pop behaviour handled before this function call by read/write method
   begin
@@ -175,7 +188,10 @@ begin
   if AOperand = $1a then
   begin
     Result := FRegisters[CRegSP] + FRam[FRegisters[CRegPC]];
-    AddCycles(1);
+    if not FOperations.Skipping then
+    begin
+      AddCycles(1);
+    end;
   end;
   if AOperand = $1b then
   begin
@@ -192,12 +208,18 @@ begin
   if AOperand = $1e then
   begin
     Result := FRam[FRegisters[CRegPC]];
-    AddCycles(1);
+    if not FOperations.Skipping then
+    begin
+      AddCycles(1);
+    end;
   end;
   if AOperand = $1f then
   begin
     Result := FRegisters[CRegPC];
-    AddCycles(1);
+    if not FOperations.Skipping then
+    begin
+      AddCycles(1);
+    end;
   end;
   if (AOperand >= $20) and (AOperand <= $3f)then
   begin
@@ -222,6 +244,18 @@ begin
       FRam[i] := (FRam[i] shl 8) + (FRam[i] shr 8);
     end;
   end;
+end;
+
+procedure TD16Emulator.Pop(var AVal: Word);
+begin
+  AVal := Ram[FRegisters[CRegSP]];
+  FRegisters[CRegSP] := FRegisters[CRegSP] + 1;
+end;
+
+procedure TD16Emulator.Push(var AVal: Word);
+begin
+  Dec(FRegisters[CRegSP]);
+  FRam[FRegisters[CRegSP]] := AVal;
 end;
 
 function TD16Emulator.ReadValue(AFromCode: Byte; var AUsedAddress: Integer; AModifySP: Boolean): Word;
@@ -260,8 +294,10 @@ procedure TD16Emulator.Reset;
 begin
   ResetRegisters();
   ResetRam();
+  FRefreshCycles := 0;
   FCycles := 0;
   FLastSleep := Now();
+  DoOnStep();
 end;
 
 procedure TD16Emulator.ResetRam;
@@ -288,6 +324,7 @@ procedure TD16Emulator.Run;
 begin
   ResetRegisters();
   FRunning := True;
+  FLastSleep := Now();
   while FRunning do
   begin
     Step();
@@ -312,6 +349,7 @@ begin
   begin
     LTo := AToAdress;;
   end;
+
   if LTo >= 0 then
   begin
     FRam[LTo] := AVal;

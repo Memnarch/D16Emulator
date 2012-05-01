@@ -32,7 +32,8 @@ object Form1: TForm1
       'PC='
       'SP='
       'EX='
-      'IA=')
+      'IA='
+      'Cycles=')
     TabOrder = 0
     TitleCaptions.Strings = (
       'Register'
@@ -69,12 +70,13 @@ object Form1: TForm1
     Gutter.Font.Style = []
     Highlighter = SynAsmSyn1
     Lines.Strings = (
-      'set [0xFF], 0x43'
-      'set c, 0xFE'
-      'set push, [c+1]'
-      'set push, 0'
-      'set b, [sp+1]'
-      'set a,[b]')
+      'set b, 5'
+      'jsr subrut'
+      'set a, b'
+      ''
+      ':subrut'
+      'set a, 3'
+      'set pc, pop')
   end
   object Button2: TButton
     Left = 303
@@ -93,6 +95,38 @@ object Form1: TForm1
     Caption = 'Assmble&&Load'
     TabOrder = 4
     OnClick = Button3Click
+  end
+  object ed1: TEdit
+    Left = 320
+    Top = 280
+    Width = 121
+    Height = 21
+    TabOrder = 5
+  end
+  object ed2: TEdit
+    Left = 320
+    Top = 307
+    Width = 121
+    Height = 21
+    TabOrder = 6
+  end
+  object btnDezToHex: TButton
+    Left = 320
+    Top = 240
+    Width = 75
+    Height = 25
+    Caption = 'btnDezToHex'
+    TabOrder = 7
+    OnClick = btnDezToHexClick
+  end
+  object Button4: TButton
+    Left = 303
+    Top = 101
+    Width = 75
+    Height = 25
+    Caption = 'Run'
+    TabOrder = 8
+    OnClick = Button4Click
   end
   object SynAsmSyn1: TSynAsmSyn
     Left = 384
