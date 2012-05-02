@@ -7,16 +7,15 @@ uses
 
 type
   TVirtualDevice = class
-  private
-    FRegisters: PD16RegisterMem;
   protected
+    FRegisters: PD16RegisterMem;
     FHardwareID: Cardinal;
     FManufactorID: Cardinal;
     FHardwareVerion: Word;
+    FRam: PD16Ram;
   public
-    constructor Create(ARegisters: PD16RegisterMem);
+    constructor Create(ARegisters: PD16RegisterMem; ARam: PD16Ram);
     procedure Interrupt(); virtual; abstract;
-    property Registers: PD16RegisterMem read FRegisters;
     property HardwareID: Cardinal read FHardwareID;
     property HardwareVersion: Word read FHardwareVerion;
     property ManufactorID: Cardinal read FManufactorID;
@@ -26,9 +25,10 @@ implementation
 
 { TVirtualDevice }
 
-constructor TVirtualDevice.Create(ARegisters: PD16RegisterMem);
+constructor TVirtualDevice.Create(ARegisters: PD16RegisterMem; ARam: PD16Ram);
 begin
   FRegisters := ARegisters;
+  FRam := ARam;
 end;
 
 end.

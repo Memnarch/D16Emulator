@@ -30,6 +30,7 @@ type
     FEmu: TD16Emulator;
     FCounter: Cardinal;
     procedure UpdateRegs();
+    procedure HandleMessage(AMessage: string);
   public
     { Public declarations }
   end;
@@ -51,7 +52,17 @@ end;
 
 procedure TForm1.Button1Click(Sender: TObject);
 begin
-  FEmu.Step();
+  try
+    try
+      FEmu.OnStep := UpdateRegs;
+      FEmu.Step();
+    except
+      on E: Exception do
+      ShowMessage(E.Message);
+    end;
+  finally
+    FEmu.OnStep := nil;
+  end;
 end;
 
 procedure TForm1.Button2Click(Sender: TObject);
@@ -89,7 +100,13 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   FEmu := TD16Emulator.Create();
-  FEmu.OnStep := UpdateRegs;
+  FEmu.OnIdle := UpdateRegs;
+  FEmu.OnMessage := HandleMessage;
+end;
+
+procedure TForm1.HandleMessage(AMessage: string);
+begin
+  SHowMessage(AMessage);
 end;
 
 procedure TForm1.UpdateRegs;

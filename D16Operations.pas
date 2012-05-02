@@ -36,6 +36,13 @@ type
     procedure StiValue(var ALeft, ARight: Word);
     procedure StdValue(var ALeft, ARight: Word);
     procedure JSR(var ALeft, ARight: Word);
+    procedure GetIA(var ALeft, ARight: Word);
+    procedure SetIA(var ALeft, ARight: Word);
+    procedure RFI(var ALeft, ARight: Word);
+    procedure IAQ(var ALeft, ARight: Word);
+    procedure HWN(var ALeft, ARight: Word);
+    procedure HWQ(var ALeft, ARight: Word);
+    procedure HWI(var ALeft, ARight: Word);
     procedure Init();
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
@@ -43,6 +50,9 @@ type
   end;
 
 implementation
+
+uses
+  Classes, Types, SysUtils;
 
 { TD16Operation }
 
@@ -134,6 +144,55 @@ begin
   end;
 end;
 
+procedure TD16Operation.GetIA(var ALeft, ARight: Word);
+begin
+  ALeft := Registers[CRegIA];
+end;
+
+procedure TD16Operation.HWI(var ALeft, ARight: Word);
+var
+  LDevice: TVirtualDevice;
+begin
+  LDevice := Devices.Items[ALeft-1];
+  if Assigned(LDevice) then
+  begin
+    LDevice.Interrupt();
+  end
+  else
+  begin
+    raise Exception.Create('HWI Error: No existing hardware with id ' + IntToStr(ALeft));
+  end;
+end;
+
+procedure TD16Operation.HWN(var ALeft, ARight: Word);
+begin
+  ALeft := Devices.Count;
+end;
+
+procedure TD16Operation.HWQ(var ALeft, ARight: Word);
+var
+  LDevice: TVirtualDevice;
+begin
+  LDevice := Devices.Items[ALeft-1];
+  if Assigned(LDevice) then
+  begin
+    Registers[CRegA] := LDevice.HardwareID;
+    Registers[CRegB] := LDevice.HardwareID shr 16;
+    Registers[CRegC] := LDevice.HardwareVersion;
+    Registers[CRegX] := LDevice.ManufactorID;
+    Registers[CRegY] := LDevice.ManufactorID shr 16;
+  end
+  else
+  begin
+    raise Exception.Create('No existing device with ID ' + IntToStr(ALeft));
+  end;
+end;
+
+procedure TD16Operation.IAQ(var ALeft, ARight: Word);
+begin
+  UseInterruptQuery := ALeft <> 0;
+end;
+
 procedure TD16Operation.IfaValue(var ALeft, ARight: Word);
 begin
   Skipping := not (SMallInt(ALeft) > SmallInt(ARight));
@@ -208,6 +267,15 @@ begin
 
   //non basic operations. Lower 5 bits are always 0
   RegisterOperation($1 shl 5, 3, JSR);
+
+  RegisterOperation($9 shl 5, 1, GetIA);
+  RegisterOperation($a shl 5, 1, SetIA);
+  RegisterOperation($b shl 5, 3, RFI);
+  RegisterOperation($c shl 5, 2, IAQ);
+
+  RegisterOperation($10 shl 5, 2, HWN);
+  RegisterOperation($11 shl 5, 4, HWQ, True);
+  RegisterOperation($12 shl 5, 4, HWI);
 end;
 
 function TD16Operation.IsBranchCode(ACode: Word): Boolean;
@@ -218,7 +286,7 @@ end;
 procedure TD16Operation.JSR(var ALeft, ARight: Word);
 begin
   Push(Registers[CRegPC]);
-  Registers[CRegPC] := ARight;
+  Registers[CRegPC] := ALeft;
 end;
 
 procedure TD16Operation.MdiValue(var ALeft, ARight: Word);
@@ -257,6 +325,13 @@ begin
   ALeft := ALeft * ARight;
 end;
 
+procedure TD16Operation.RFI(var ALeft, ARight: Word);
+begin
+  UseInterruptQuery := False;
+  Pop(Registers[CRegA]);
+  Pop(Registers[CRegPC]);
+end;
+
 procedure TD16Operation.SbxValue(var ALeft, ARight: Word);
 var
   LHasUnderflow: Boolean;
@@ -271,6 +346,11 @@ begin
   begin
     Registers[CRegEX] := 0;
   end;
+end;
+
+procedure TD16Operation.SetIA(var ALeft, ARight: Word);
+begin
+  Registers[CRegIA] := ALeft;
 end;
 
 procedure TD16Operation.SetValue(var ALeft, ARight: Word);

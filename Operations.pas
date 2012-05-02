@@ -14,11 +14,13 @@ type
     FOperation: TOperation;
     FOpCode: Word;
     FCost: Byte;
+    FReadOnly: Boolean;
   public
-    constructor Create(ACode, ACost: Byte; AOp: TOperation); reintroduce;
+    constructor Create(ACode: Word; ACost: Byte; AOp: TOperation; AReadOnly: Boolean); reintroduce;
     property Operation: TOperation read FOperation;
     property OpCode: Word read FOpCode;
     property Cost: Byte read FCost;
+    property ReadOnly: Boolean read FReadOnly;
   end;
 
   TOperations = class
@@ -29,10 +31,11 @@ type
     FDevices: TObjectList<TVirtualDevice>;
     FPush: TCPUAction;
     FPop: TCPUAction;
+    FUseInterruptQuery: Boolean;
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
     destructor Destroy(); override;
-    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TOperation);
+    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TOperation; AReadOnly: Boolean = False);
     function GetOperation(AOpCode: Word): TOperationItem;
     function IsBranchCode(ACode: Word): Boolean; virtual;
     property Operations: TObjectList<TOperationItem> read FOperations;
@@ -41,18 +44,20 @@ type
     property Devices: TObjectList<TVirtualDevice> read FDevices;
     property Push: TCPUAction read FPush write FPush;
     property Pop: TCPUAction read FPop write FPop;
+    property UseInterruptQuery: Boolean read FUseInterruptQuery write FUseInterruptQuery;
   end;
 
 implementation
 
 { TOperationItem }
 
-constructor TOperationItem.Create(ACode, ACost: Byte; AOp: TOperation);
+constructor TOperationItem.Create(ACode: Word; ACost: Byte; AOp: TOperation; AReadOnly: Boolean);
 begin
   inherited Create();
   FOpCode := ACode;
   FOperation := AOp;
   FCost := ACost;
+  FReadOnly := AReadOnly;
 end;
 
 { TOperations }
@@ -63,6 +68,7 @@ begin
   FSkipping := False;
   FRegisters := ARegisters;
   FDevices := ADevices;
+  FUseInterruptQuery := False;
 end;
 
 destructor TOperations.Destroy;
@@ -91,9 +97,9 @@ begin
   Result := False;
 end;
 
-procedure TOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TOperation);
+procedure TOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TOperation; AReadOnly: Boolean = False);
 begin
-  FOperations.Add(TOperationItem.Create(AOpCode, ACost, AOperation));
+  FOperations.Add(TOperationItem.Create(AOpCode, ACost, AOperation, AReadOnly));
 end;
 
 end.

@@ -3,7 +3,7 @@ object Form1: TForm1
   Top = 0
   Caption = 'Form1'
   ClientHeight = 366
-  ClientWidth = 786
+  ClientWidth = 985
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -54,9 +54,10 @@ object Form1: TForm1
   object Code: TSynEdit
     Left = 512
     Top = 0
-    Width = 274
+    Width = 473
     Height = 366
     Align = alRight
+    Anchors = [akLeft, akTop, akRight, akBottom]
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -70,13 +71,52 @@ object Form1: TForm1
     Gutter.Font.Style = []
     Highlighter = SynAsmSyn1
     Lines.Strings = (
-      'set b, 5'
-      'jsr subrut'
-      'set a, b'
       ''
-      ':subrut'
-      'set a, 3'
-      'set pc, pop')
+      ''
+      ''
+      'jsr init_display'
+      ''
+      ''
+      'set c, display_mem'
+      'set j, string'
+      ':next_char'
+      'set i, [j]       '
+      'bor i, 0xa000    '
+      'set [c], i       '
+      'add c, 1         '
+      'add j, 1         '
+      'ifn [j], 0x00    '
+      ' set pc, next_char'
+      ''
+      ':end'
+      'set pc, end'
+      ''
+      ''
+      ':init_display           '
+      'add [display_address],1 '
+      'hwq [display_address]  '
+      'ifn c, 0x1802           '
+      ' set pc, init_display   '
+      '  '
+      ''
+      'set c, [display_address]'
+      'set a, 0           '
+      'set b, display_mem '
+      'hwi c              '
+      ''
+      'set pc, pop'
+      ''
+      ''
+      ':display_mem'
+      'dat 0x00'
+      ''
+      ':display_address'
+      'dat 0x00'
+      ''
+      ':string'
+      'dat "Hello (brave new) World!", 0x00'
+      ''
+      '')
   end
   object Button2: TButton
     Left = 303

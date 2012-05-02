@@ -58,6 +58,11 @@
 			<DCCReference Include="D16Operations.pas"/>
 			<DCCReference Include="EmuTypes.pas"/>
 			<DCCReference Include="VirtualDevice.pas"/>
+			<DCCReference Include="LEM1802.pas"/>
+			<DCCReference Include="BasicScreenForm.pas">
+				<Form>BasicScreen</Form>
+			</DCCReference>
+			<DCCReference Include="TaskThread.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
 				<CfgParent>Base</CfgParent>

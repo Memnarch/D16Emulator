@@ -4,10 +4,12 @@ interface
 
 type
   TD16Ram = array[0..$FFFF] of Word;
+  PD16Ram = ^TD16Ram;
   TD16RegisterMem = array[0..11] of Word;
   PD16RegisterMem = ^TD16RegisterMem;
 
   TEvent = procedure() of object;
+  TMessageEvent = procedure(AMessage: string) of object;
 
 const
   CRegA = 0;
