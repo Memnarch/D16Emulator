@@ -10,6 +10,7 @@ type
 
   TEvent = procedure() of object;
   TMessageEvent = procedure(AMessage: string) of object;
+  TInterruptEvent = procedure(AMessage: Word) of object;
 
 const
   CRegA = 0;

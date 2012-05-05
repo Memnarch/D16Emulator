@@ -63,6 +63,9 @@
 				<Form>BasicScreen</Form>
 			</DCCReference>
 			<DCCReference Include="TaskThread.pas"/>
+			<DCCReference Include="GenericClock.pas"/>
+			<DCCReference Include="GenericKeyboard.pas"/>
+			<DCCReference Include="Floppy.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
 				<CfgParent>Base</CfgParent>

@@ -3,7 +3,7 @@ unit D16Operations;
 interface
 
 uses
-  Generics.Collections, Operations, EmuTypes, VirtualDevice;
+  Generics.Collections, Operations, EmuTypes, VirtualDevice, SiAuto, SmartInspect;
 
 type
   TD16Operation = class(TOperations)
@@ -43,6 +43,8 @@ type
     procedure HWN(var ALeft, ARight: Word);
     procedure HWQ(var ALeft, ARight: Word);
     procedure HWI(var ALeft, ARight: Word);
+    procedure INT(var ALeft, ARight: Word);
+    function GetDevice(AIndex: Word): TVirtualDevice;
     procedure Init();
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
@@ -144,6 +146,15 @@ begin
   end;
 end;
 
+function TD16Operation.GetDevice(AIndex: Word): TVirtualDevice;
+begin
+  Result := nil;
+  if (AIndex < Devices.Count) then
+  begin
+    Result := Devices.Items[AIndex];
+  end;
+end;
+
 procedure TD16Operation.GetIA(var ALeft, ARight: Word);
 begin
   ALeft := Registers[CRegIA];
@@ -153,7 +164,7 @@ procedure TD16Operation.HWI(var ALeft, ARight: Word);
 var
   LDevice: TVirtualDevice;
 begin
-  LDevice := Devices.Items[ALeft-1];
+  LDevice := GetDevice(ALeft); //Devices.Items[ALeft-1];
   if Assigned(LDevice) then
   begin
     LDevice.Interrupt();
@@ -173,7 +184,7 @@ procedure TD16Operation.HWQ(var ALeft, ARight: Word);
 var
   LDevice: TVirtualDevice;
 begin
-  LDevice := Devices.Items[ALeft-1];
+  LDevice := GetDevice(ALeft); //Devices.Items[ALeft-1];
   if Assigned(LDevice) then
   begin
     Registers[CRegA] := LDevice.HardwareID;
@@ -190,7 +201,7 @@ end;
 
 procedure TD16Operation.IAQ(var ALeft, ARight: Word);
 begin
-  UseInterruptQuery := ALeft <> 0;
+  UseInterruptQuery := ALeft = 0;
 end;
 
 procedure TD16Operation.IfaValue(var ALeft, ARight: Word);
@@ -268,6 +279,7 @@ begin
   //non basic operations. Lower 5 bits are always 0
   RegisterOperation($1 shl 5, 3, JSR);
 
+  RegisterOperation($8 shl 5, 4, INT);
   RegisterOperation($9 shl 5, 1, GetIA);
   RegisterOperation($a shl 5, 1, SetIA);
   RegisterOperation($b shl 5, 3, RFI);
@@ -276,6 +288,11 @@ begin
   RegisterOperation($10 shl 5, 2, HWN);
   RegisterOperation($11 shl 5, 4, HWQ, True);
   RegisterOperation($12 shl 5, 4, HWI);
+end;
+
+procedure TD16Operation.INT(var ALeft, ARight: Word);
+begin
+  SoftwareInterrupt(ALeft);
 end;
 
 function TD16Operation.IsBranchCode(ACode: Word): Boolean;
@@ -327,9 +344,11 @@ end;
 
 procedure TD16Operation.RFI(var ALeft, ARight: Word);
 begin
-  UseInterruptQuery := False;
+  UseInterruptQuery := True;
   Pop(Registers[CRegA]);
+  SiMain.LogInteger('PC-Before', Registers[CRegPC]);
   Pop(Registers[CRegPC]);
+  SiMain.LogInteger('PC-After', Registers[CRegPC]);
 end;
 
 procedure TD16Operation.SbxValue(var ALeft, ARight: Word);
@@ -389,14 +408,14 @@ procedure TD16Operation.StdValue(var ALeft, ARight: Word);
 begin
   ALeft := ARight;
   Dec(Registers[CRegI]);
-  Dec(Registers[CRegJ])
+  Dec(Registers[CRegJ]);
 end;
 
 procedure TD16Operation.StiValue(var ALeft, ARight: Word);
 begin
   ALeft := ARight;
   Inc(Registers[CRegI]);
-  Inc(Registers[CRegJ])
+  Inc(Registers[CRegJ]);
 end;
 
 procedure TD16Operation.SubValue(var ALeft, ARight: Word);

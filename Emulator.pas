@@ -3,7 +3,7 @@ unit Emulator;
 interface
 
 uses
-  Classes, Types, SysUtils, Generics.Collections, EmuTypes, Operations, VirtualDevice;
+  Classes, Types, SysUtils, Generics.Collections, EmuTypes, Operations, VirtualDevice, SiAuto, SmartInspect;
 
 type
 
@@ -13,6 +13,7 @@ type
     FRegisters: TD16RegisterMem;
     FRefreshCycles: Integer;
     FLastSleep: TDateTime;
+    FLastUpdate: TDateTime;
     FRunning: Boolean;
     FOnStep: TEvent;
     FOperations: TOperations;
@@ -21,6 +22,8 @@ type
     FOnIdle: TEvent;
     FMessage: string;
     FOnMessage: TMessageEvent;
+    FUpdateQuery: TObjectList<TVirtualDevice>;
+    FInterruptQueue: TQueue<Word>;
     procedure ResetRam();
     procedure ResetRegisters();
     procedure AddCycles(ACycles: Integer);
@@ -35,6 +38,12 @@ type
     procedure Push(var AVal: Word);
     procedure Pop(var AVal: Word);
     procedure InitBaseDevices();
+    procedure ProcessDeviceUpdates();
+    procedure ProcessInterruptQueue();
+    procedure QueueInterrupt(AMessage: Word);
+    procedure CallSWInterrupt(AMessage: Word);
+    procedure JumpOverCondition();
+    procedure Init();
   protected
     procedure Execute(); override;
   public
@@ -45,6 +54,7 @@ type
     procedure Run();
     procedure Stop();
     procedure Step();
+    procedure RegisterDevice(ADevice: TVirtualDevice);
     property Ram: TD16Ram read FRam write FRam;
     property Registers: TD16RegisterMem read FRegisters write FRegisters;
     property OnStep: TEvent read FOnStep write FOnStep;
@@ -53,12 +63,13 @@ type
     property Operations: TOperations read FOperations;
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
+    property InterruptQueue: TQueue<Word> read FInterruptQueue;
   end;
 
 implementation
 
 uses
-  DateUtils, D16Operations, LEM1802;
+  DateUtils, D16Operations, LEM1802, GenericKeyboard, GenericClock, Floppy;
 
 { TD16Emulator }
 
@@ -81,14 +92,22 @@ begin
   end;
 end;
 
+procedure TD16Emulator.CallSWInterrupt(AMessage: Word);
+begin
+  if FRegisters[CRegIA] <> 0 then
+  begin
+    FOperations.UseInterruptQuery := False;
+    Push(FRegisters[CRegPC]);
+    Push(FRegisters[CRegA]);
+    FRegisters[CRegA] := AMessage;
+    FRegisters[CRegPC] := FRegisters[CRegIA];
+  end;
+end;
+
 constructor TD16Emulator.Create;
 begin
   inherited;
-  FDevices := TObjectList<TVirtualDevice>.Create();
-  FOperations := TD16Operation.Create(@FRegisters, FDevices);
-  FOperations.Push := Push;
-  FOperations.Pop := Pop;
-  InitBaseDevices();
+  Init();
 end;
 
 procedure TD16Emulator.DecodeWord(AInput: Word; var AOpcode: Word; var ALeft,
@@ -115,6 +134,9 @@ end;
 destructor TD16Emulator.Destroy;
 begin
   FOperations.Free;
+  FDevices.Free;
+  FUpdateQuery.Free;
+  FInterruptQueue.Free;
   inherited;
 end;
 
@@ -155,25 +177,25 @@ begin
   DecodeWord(LCode, LOpCode, LLeft, LRight);
   LRightVal := ReadValue(LRight, LRightAddr, not FOperations.Skipping);
   LLeftVal := ReadValue(LLeft, LLeftAddr);
-  if not FOperations.Skipping then
-  begin
-    ExecuteOperation(LOpCode, LLeftVal, LRightVal, LIsReadOnly);
-    WriteValue(LLeft, LLeftAddr, LLeftVal, LIsReadOnly);
-  end
-  else
+
+  ExecuteOperation(LOpCode, LLeftVal, LRightVal, LIsReadOnly);
+  WriteValue(LLeft, LLeftAddr, LLeftVal, LIsReadOnly);
+  if FOperations.Skipping then
   begin
     AddCycles(1);
+    JumpOverCondition();
   end;
-  if (not FOperations.IsBranchCode(LOpCode)) and (FOperations.Skipping) then
-  begin
-    FOperations.Skipping := False;
-  end;
+
+  ProcessDeviceUpdates();
+  ProcessInterruptQueue();
+
   DoOnStep();
 end;
 
 procedure TD16Emulator.Execute;
 begin
   inherited;
+
   while not Terminated do
   begin
     if FRunning then
@@ -283,9 +305,44 @@ begin
   end;
 end;
 
+procedure TD16Emulator.Init;
+begin
+  FDevices := TObjectList<TVirtualDevice>.Create();
+  FUpdateQuery := TObjectList<TVirtualDevice>.Create(False);
+  FInterruptQueue := TQueue<Word>.Create();
+  FOperations := TD16Operation.Create(@FRegisters, FDevices);
+  FOperations.Push := Push;
+  FOperations.Pop := Pop;
+  FOperations.SoftwareInterrupt := QueueInterrupt;
+  InitBaseDevices();
+end;
+
 procedure TD16Emulator.InitBaseDevices;
 begin
-  FDevices.Add(TLEM1802.Create(@FRegisters, @FRam));
+  RegisterDevice(TLEM1802.Create(@FRegisters, @FRam));
+  RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
+  RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
+  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+end;
+
+procedure TD16Emulator.JumpOverCondition;
+var
+  LLeftAddr, LRightAddr: Integer;
+  LCode, LOpCode: Word;
+  LLeft, LRight: Byte;
+begin
+  while FOperations.Skipping do
+  begin
+    LCode := FRam[FRegisters[CRegPC]];
+    Inc(FRegisters[CRegPC]);
+    DecodeWord(LCode, LOpCode, LLeft, LRight);
+    ReadValue(LRight, LRightAddr, False);
+    ReadValue(LLeft, LLeftAddr);
+    if not FOperations.IsBranchCode(LOpCode) then
+    begin
+      FOperations.Skipping := False;
+    end;
+  end;
 end;
 
 procedure TD16Emulator.LoadFromFile(AFile: string; AUseBigEndian: Boolean = False);
@@ -316,10 +373,48 @@ begin
   FRegisters[CRegSP] := FRegisters[CRegSP] + 1;
 end;
 
+procedure TD16Emulator.ProcessDeviceUpdates;
+var
+  LDevice: TVirtualDevice;
+begin
+  if MilliSecondsBetween(FLastUpdate, Now()) >= 10 then
+  begin
+    for LDevice in FUpdateQuery do
+    begin
+      LDevice.UpdateDevice();
+    end;
+    FLastUpdate := Now();
+  end;
+end;
+
+procedure TD16Emulator.ProcessInterruptQueue;
+begin
+  if FRegisters[CRegIA] = 0 then
+  begin
+    FInterruptQueue.Clear;
+  end;
+  if (FOperations.UseInterruptQuery) and (FInterruptQueue.Count > 0) then
+  begin
+    CallSWInterrupt(FInterruptQueue.Dequeue);
+  end;
+end;
+
 procedure TD16Emulator.Push(var AVal: Word);
 begin
   Dec(FRegisters[CRegSP]);
   FRam[FRegisters[CRegSP]] := AVal;
+end;
+
+procedure TD16Emulator.QueueInterrupt(AMessage: Word);
+begin
+  AddCycles(4);
+  if FRegisters[CRegIA] = 0 then exit;
+
+  FInterruptQueue.Enqueue(AMessage);
+  if FInterruptQueue.Count > 256 then
+  begin
+    raise EAbort.Create('Interruptqueue overflow');
+  end;
 end;
 
 function TD16Emulator.ReadValue(AFromCode: Byte; var AUsedAddress: Integer; AModifySP: Boolean): Word;
@@ -354,6 +449,16 @@ begin
   end;
 end;
 
+procedure TD16Emulator.RegisterDevice(ADevice: TVirtualDevice);
+begin
+  FDevices.Add(ADevice);
+  ADevice.SoftwareInterrupt := QueueInterrupt;
+  if ADevice.NeedsUpdate then
+  begin
+    FUpdateQuery.Add(ADevice);
+  end;
+end;
+
 procedure TD16Emulator.Reset;
 begin
   if not FRunning then
@@ -363,6 +468,7 @@ begin
     FRefreshCycles := 0;
     FCycles := 0;
     FLastSleep := Now();
+    FLastUpdate := Now();
     DoOnStep();
   end;
 end;

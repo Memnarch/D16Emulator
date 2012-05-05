@@ -32,6 +32,7 @@ type
     FPush: TCPUAction;
     FPop: TCPUAction;
     FUseInterruptQuery: Boolean;
+    FSoftwareInterrupt: TInterruptEvent;
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
     destructor Destroy(); override;
@@ -45,6 +46,7 @@ type
     property Push: TCPUAction read FPush write FPush;
     property Pop: TCPUAction read FPop write FPop;
     property UseInterruptQuery: Boolean read FUseInterruptQuery write FUseInterruptQuery;
+    property SoftwareInterrupt: TInterruptEvent read FSoftwareInterrupt write FSoftwareInterrupt;
   end;
 
 implementation
@@ -68,7 +70,7 @@ begin
   FSkipping := False;
   FRegisters := ARegisters;
   FDevices := ADevices;
-  FUseInterruptQuery := False;
+  FUseInterruptQuery := True;
 end;
 
 destructor TOperations.Destroy;

@@ -10,7 +10,10 @@ uses
   VirtualDevice in 'VirtualDevice.pas',
   LEM1802 in 'LEM1802.pas',
   BasicScreenForm in 'BasicScreenForm.pas' {BasicScreen},
-  TaskThread in 'TaskThread.pas';
+  TaskThread in 'TaskThread.pas',
+  GenericClock in 'GenericClock.pas',
+  GenericKeyboard in 'GenericKeyboard.pas',
+  Floppy in 'Floppy.pas';
 
 {$R *.res}
 

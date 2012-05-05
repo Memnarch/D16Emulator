@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, Grids, ValEdit, Emulator, StdCtrls, SynEdit, SynEditHighlighter,
-  SynHighlighterAsm;
+  SynHighlighterAsm, SmartInspect, SiAuto;
 
 type
   TForm1 = class(TForm)
@@ -58,7 +58,10 @@ begin
       FEmu.Step();
     except
       on E: Exception do
-      ShowMessage(E.Message);
+      begin
+        UpdateRegs();
+        ShowMessage(E.Message);
+      end;
     end;
   finally
     FEmu.OnStep := nil;
@@ -85,7 +88,10 @@ begin
       FEmu.LoadFromFile('test.d16', True);
     except
       on E: Exception do
-      ShowMessage(E.Message);
+      begin
+        //UpdateRegs();
+        ShowMessage(E.Message);
+      end;
     end;
   finally
     LAssembler.Free;
@@ -100,8 +106,10 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   FEmu := TD16Emulator.Create();
+//  FEmu.OnStep := UpdateRegs;
   FEmu.OnIdle := UpdateRegs;
   FEmu.OnMessage := HandleMessage;
+  Code.Lines.LoadFromFile('E:\Git\D16Emulator\AtlasOS.dasm16');
 end;
 
 procedure TForm1.HandleMessage(AMessage: string);
@@ -127,8 +135,13 @@ begin
     VEdit.Values['EX'] := IntToHex(FEmu.Registers[CRegEX], 4);
     VEdit.Values['IA'] := IntToHex(FEmu.Registers[CRegIA], 4);
     VEdit.Values['Cycles'] := IntToStr(FEmu.Cycles);
+    VEdit.Values['InterruptQueue'] := IntToSTr(FEmu.InterruptQueue.Count);
 //    Application.ProcessMessages();
 //  end;
 end;
+
+initialization
+  Si.Enabled := True;
+
 
 end.

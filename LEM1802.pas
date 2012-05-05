@@ -54,6 +54,7 @@ begin
   FFont.LoadFromFile('Font.bmp');
 
   FMonitor := TBasicScreen.Create(nil);
+  FMonitor.ScreenTimer.Enabled := True;
   FMonitor.ClientWidth := FBuffer.Width*4;
   FMonitor.ClientHeight := FBuffer.Height*4;
   FMonitor.Screen.OnPaint := RenderScreen;
