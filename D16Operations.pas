@@ -3,10 +3,10 @@ unit D16Operations;
 interface
 
 uses
-  Generics.Collections, Operations, EmuTypes, VirtualDevice, SiAuto, SmartInspect;
+  Generics.Collections, CPUOperations, EmuTypes, VirtualDevice, SiAuto, SmartInspect;
 
 type
-  TD16Operation = class(TOperations)
+  TD16Operation = class(TCPUOperations)
   private
     procedure SetValue(var ALeft, ARight: Word);
     procedure AddValue(var ALeft, ARight: Word);

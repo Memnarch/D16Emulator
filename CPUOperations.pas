@@ -1,4 +1,4 @@
-unit Operations;
+unit CPUOperations;
 
 interface
 
@@ -6,26 +6,26 @@ uses
   Classes, Types, Generics.Collections, EmuTypes, VirtualDevice;
 
 type
-  TOperation = procedure(var ALeft, ARight: Word) of object;
+  TCPUOperation = procedure(var ALeft, ARight: Word) of object;
   TCPUAction = procedure(var AVal: Word) of object;
 
-  TOperationItem = class
+  TCPUOperationItem = class
   private
-    FOperation: TOperation;
+    FOperation: TCPUOperation;
     FOpCode: Word;
     FCost: Byte;
     FReadOnly: Boolean;
   public
-    constructor Create(ACode: Word; ACost: Byte; AOp: TOperation; AReadOnly: Boolean); reintroduce;
-    property Operation: TOperation read FOperation;
+    constructor Create(ACode: Word; ACost: Byte; AOp: TCPUOperation; AReadOnly: Boolean); reintroduce;
+    property Operation: TCPUOperation read FOperation;
     property OpCode: Word read FOpCode;
     property Cost: Byte read FCost;
     property ReadOnly: Boolean read FReadOnly;
   end;
 
-  TOperations = class
+  TCPUOperations = class
   private
-    FOperations: TObjectList<TOperationItem>;
+    FOperations: TObjectList<TCPUOperationItem>;
     FSkipping: Boolean;
     FRegisters: PD16RegisterMem;
     FDevices: TObjectList<TVirtualDevice>;
@@ -36,10 +36,10 @@ type
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
     destructor Destroy(); override;
-    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TOperation; AReadOnly: Boolean = False);
-    function GetOperation(AOpCode: Word): TOperationItem;
+    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TCPUOperation; AReadOnly: Boolean = False);
+    function GetOperation(AOpCode: Word): TCPUOperationItem;
     function IsBranchCode(ACode: Word): Boolean; virtual;
-    property Operations: TObjectList<TOperationItem> read FOperations;
+    property Operations: TObjectList<TCPUOperationItem> read FOperations;
     property Skipping: Boolean read FSkipping write FSkipping;
     property Registers: PD16RegisterMem read FRegisters write FRegisters;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
@@ -53,7 +53,7 @@ implementation
 
 { TOperationItem }
 
-constructor TOperationItem.Create(ACode: Word; ACost: Byte; AOp: TOperation; AReadOnly: Boolean);
+constructor TCPUOperationItem.Create(ACode: Word; ACost: Byte; AOp: TCPUOperation; AReadOnly: Boolean);
 begin
   inherited Create();
   FOpCode := ACode;
@@ -64,24 +64,24 @@ end;
 
 { TOperations }
 
-constructor TOperations.Create;
+constructor TCPUOperations.Create;
 begin
-  FOperations := TObjectList<TOperationItem>.Create();
+  FOperations := TObjectList<TCPUOperationItem>.Create();
   FSkipping := False;
   FRegisters := ARegisters;
   FDevices := ADevices;
   FUseInterruptQuery := True;
 end;
 
-destructor TOperations.Destroy;
+destructor TCPUOperations.Destroy;
 begin
   FOperations.Free;
   inherited;
 end;
 
-function TOperations.GetOperation(AOpCode: Word): TOperationItem;
+function TCPUOperations.GetOperation(AOpCode: Word): TCPUOperationItem;
 var
-  LItem: TOperationItem;
+  LItem: TCPUOperationItem;
 begin
   Result := nil;
   for LItem in FOperations do
@@ -94,14 +94,14 @@ begin
   end;
 end;
 
-function TOperations.IsBranchCode(ACode: Word): Boolean;
+function TCPUOperations.IsBranchCode(ACode: Word): Boolean;
 begin
   Result := False;
 end;
 
-procedure TOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TOperation; AReadOnly: Boolean = False);
+procedure TCPUOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TCPUOperation; AReadOnly: Boolean = False);
 begin
-  FOperations.Add(TOperationItem.Create(AOpCode, ACost, AOperation, AReadOnly));
+  FOperations.Add(TCPUOperationItem.Create(AOpCode, ACost, AOperation, AReadOnly));
 end;
 
 end.

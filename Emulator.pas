@@ -3,7 +3,7 @@ unit Emulator;
 interface
 
 uses
-  Classes, Types, SysUtils, Generics.Collections, EmuTypes, Operations, VirtualDevice, SiAuto, SmartInspect;
+  Classes, Types, SysUtils, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice, SiAuto, SmartInspect;
 
 type
 
@@ -16,7 +16,7 @@ type
     FLastUpdate: TDateTime;
     FRunning: Boolean;
     FOnStep: TEvent;
-    FOperations: TOperations;
+    FOperations: TCPUOperations;
     FCycles: Cardinal;
     FDevices: TObjectList<TVirtualDevice>;
     FOnIdle: TEvent;
@@ -60,7 +60,7 @@ type
     property OnStep: TEvent read FOnStep write FOnStep;
     property OnIdle: TEvent read FOnIdle write FOnIdle;
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
-    property Operations: TOperations read FOperations;
+    property Operations: TCPUOperations read FOperations;
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
     property InterruptQueue: TQueue<Word> read FInterruptQueue;
@@ -220,7 +220,7 @@ end;
 
 procedure TD16Emulator.ExecuteOperation(AOpCode: Word; var ALeft, ARight: Word; var AIsReadOnly: Boolean);
 var
-  LItem: TOperationItem;
+  LItem: TCPUOperationItem;
 begin
   LItem := FOperations.GetOperation(AOpCode);
   if Assigned(LItem) then
@@ -322,7 +322,7 @@ begin
   RegisterDevice(TLEM1802.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
-  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+//  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
 end;
 
 procedure TD16Emulator.JumpOverCondition;
