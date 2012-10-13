@@ -54,7 +54,7 @@
 				<Form>Form1</Form>
 			</DCCReference>
 			<DCCReference Include="Emulator.pas"/>
-			<DCCReference Include="Operations.pas"/>
+			<DCCReference Include="CPUOperations.pas"/>
 			<DCCReference Include="D16Operations.pas"/>
 			<DCCReference Include="EmuTypes.pas"/>
 			<DCCReference Include="VirtualDevice.pas"/>

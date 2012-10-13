@@ -1,9 +1,11 @@
 object BasicScreen: TBasicScreen
   Left = 0
   Top = 0
+  BorderIcons = []
+  BorderStyle = bsDialog
   Caption = 'BasicScreen'
-  ClientHeight = 290
-  ClientWidth = 554
+  ClientHeight = 300
+  ClientWidth = 564
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -11,13 +13,14 @@ object BasicScreen: TBasicScreen
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  Position = poMainFormCenter
   PixelsPerInch = 96
   TextHeight = 13
   object Screen: TPaintBox
     Left = 0
     Top = 0
-    Width = 554
-    Height = 290
+    Width = 564
+    Height = 300
     Align = alClient
     ExplicitLeft = 232
     ExplicitTop = 112
