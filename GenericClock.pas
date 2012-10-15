@@ -41,45 +41,47 @@ end;
 
 procedure TGenericClock.Interrupt;
 begin
-  SiMain.EnterMethod(Self, 'Interrupt');
-  SiMAin.LogInteger('RegA', FRegisters[CRegA]);
+//  SiMain.EnterMethod(Self, 'Interrupt');
+//  SiMAin.LogInteger('RegA', FRegisters[CRegA]);
   case FRegisters[CRegA] of
     0:
     begin
       if FRegisters[CRegB] <> 0 then
       begin
         FLastTick := Now();
-        FInterval := 1000;// div (60 div FRegisters[CRegB]);
+        FInterval := 1000 div (60 div FRegisters[CRegB]);
       end
       else
       begin
         FInterval := 0;
       end;
+      SiMain.LogInteger('Tickrate', FInterval);
+      FCalls := 0;
     end;
     1:
     begin
-      if FCalls = 0 then
-      begin
-
-      end;
-      Inc(FCalls);
+      FRegisters[CregC] := FCalls;
     end;
     2:
     begin
       FMessage := FRegisters[CRegB];
     end;
   end;
-  SiMain.LeaveMethod(Self, 'Interrupt');
+//  SiMain.LeaveMethod(Self, 'Interrupt');
 end;
 
 procedure TGenericClock.UpdateDevice;
 begin
   inherited;
-  if (FMessage <> 0) and (FInterval <> 0) and (MilliSecondsBetween(FLastTick, Now()) >= FInterval) then
+  if (FInterval <> 0) and (MilliSecondsBetween(FLastTick, Now()) >= FInterval) then
   begin
     SiMain.LogMessage('ticket');
     FLastTick := Now();
-    SoftwareInterrupt(FMessage);
+    Inc(FCalls);
+    if (FMessage <> 0) then
+    begin
+      SoftwareInterrupt(FMessage);
+    end;
   end;
 end;
 
