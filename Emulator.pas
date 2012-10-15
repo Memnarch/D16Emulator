@@ -3,7 +3,7 @@ unit Emulator;
 interface
 
 uses
-  Classes, Types, SysUtils, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice, SiAuto, SmartInspect;
+  Classes, Types, Windows, Messages, SysUtils, SyncObjs, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice, SiAuto, SmartInspect;
 
 type
 
@@ -182,10 +182,8 @@ begin
   WriteValue(LLeft, LLeftAddr, LLeftVal, LIsReadOnly);
   if FOperations.Skipping then
   begin
-    AddCycles(1);
     JumpOverCondition();
   end;
-
   ProcessDeviceUpdates();
   ProcessInterruptQueue();
 
@@ -195,7 +193,6 @@ end;
 procedure TD16Emulator.Execute;
 begin
   inherited;
-
   while not Terminated do
   begin
     if FRunning then
@@ -333,6 +330,7 @@ var
 begin
   while FOperations.Skipping do
   begin
+    AddCycles(1);
     LCode := FRam[FRegisters[CRegPC]];
     Inc(FRegisters[CRegPC]);
     DecodeWord(LCode, LOpCode, LLeft, LRight);
