@@ -15,11 +15,13 @@ type
     FOpCode: Word;
     FCost: Byte;
     FReadOnly: Boolean;
+    FOperationName: string;
   public
-    constructor Create(ACode: Word; ACost: Byte; AOp: TCPUOperation; AReadOnly: Boolean); reintroduce;
+    constructor Create(ACode: Word; ACost: Byte; AOp: TCPUOperation;AName: string; AReadOnly: Boolean); reintroduce;
     property Operation: TCPUOperation read FOperation;
     property OpCode: Word read FOpCode;
     property Cost: Byte read FCost;
+    property OperationName: string read FOperationName;
     property ReadOnly: Boolean read FReadOnly;
   end;
 
@@ -36,7 +38,7 @@ type
   public
     constructor Create(ARegisters: PD16RegisterMem; ADevices: TObjectList<TVirtualDevice>);
     destructor Destroy(); override;
-    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TCPUOperation; AReadOnly: Boolean = False);
+    procedure RegisterOperation(AOpCode: word; ACost: Byte; AOperation: TCPUOperation; AName: string; AReadOnly: Boolean = False);
     function GetOperation(AOpCode: Word): TCPUOperationItem;
     function IsBranchCode(ACode: Word): Boolean; virtual;
     property Operations: TObjectList<TCPUOperationItem> read FOperations;
@@ -53,12 +55,13 @@ implementation
 
 { TOperationItem }
 
-constructor TCPUOperationItem.Create(ACode: Word; ACost: Byte; AOp: TCPUOperation; AReadOnly: Boolean);
+constructor TCPUOperationItem.Create(ACode: Word; ACost: Byte; AOp: TCPUOperation; AName: string; AReadOnly: Boolean);
 begin
   inherited Create();
   FOpCode := ACode;
   FOperation := AOp;
   FCost := ACost;
+  FOperationName := AName;
   FReadOnly := AReadOnly;
 end;
 
@@ -99,9 +102,10 @@ begin
   Result := False;
 end;
 
-procedure TCPUOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TCPUOperation; AReadOnly: Boolean = False);
+procedure TCPUOperations.RegisterOperation(AOpCode: Word; ACost: Byte; AOperation: TCPUOperation; AName: string;
+  AReadOnly: Boolean = False);
 begin
-  FOperations.Add(TCPUOperationItem.Create(AOpCode, ACost, AOperation, AReadOnly));
+  FOperations.Add(TCPUOperationItem.Create(AOpCode, ACost, AOperation, AName, AReadOnly));
 end;
 
 end.

@@ -246,48 +246,48 @@ end;
 
 procedure TD16Operation.Init;
 begin
-  RegisterOperation($1, 1, SetValue);
-  RegisterOperation($2, 2, AddValue);
-  RegisterOperation($3, 2, SubValue);
-  RegisterOperation($4, 2, MulValue);
-  RegisterOperation($5, 2, MliValue);
-  RegisterOperation($6, 3, DivValue);
-  RegisterOperation($7, 3, DviValue);
-  RegisterOperation($8, 3, ModValue);
-  RegisterOperation($9, 3, MdiValue);
-  RegisterOperation($a, 1, AndValue);
-  RegisterOperation($b, 1, BorValue);
-  RegisterOperation($c, 1, XorValue);
-  RegisterOperation($d, 1, ShrValue);
-  RegisterOperation($e, 1, AsrValue);
-  RegisterOperation($f, 1, ShlValue);
-  RegisterOperation($10, 2, IfbValue);
-  RegisterOperation($11, 2, IfcValue);
-  RegisterOperation($12, 2, IfeValue);
-  RegisterOperation($13, 2, IfnValue);
-  RegisterOperation($14, 2, IfgValue);
-  RegisterOperation($15, 2, IfaValue);
-  RegisterOperation($16, 2, IflValue);
-  RegisterOperation($17, 2, IfuValue);
+  RegisterOperation($1, 1, SetValue, 'Set');
+  RegisterOperation($2, 2, AddValue, 'Add');
+  RegisterOperation($3, 2, SubValue, 'Sub');
+  RegisterOperation($4, 2, MulValue, 'Mul');
+  RegisterOperation($5, 2, MliValue, 'Mli');
+  RegisterOperation($6, 3, DivValue, 'Div');
+  RegisterOperation($7, 3, DviValue, 'Dvi');
+  RegisterOperation($8, 3, ModValue, 'Mod');
+  RegisterOperation($9, 3, MdiValue, 'Mdi');
+  RegisterOperation($a, 1, AndValue, 'And');
+  RegisterOperation($b, 1, BorValue, 'Bor');
+  RegisterOperation($c, 1, XorValue, 'Xor');
+  RegisterOperation($d, 1, ShrValue, 'Shr');
+  RegisterOperation($e, 1, AsrValue, 'Asr');
+  RegisterOperation($f, 1, ShlValue, 'Shl');
+  RegisterOperation($10, 2, IfbValue, 'Ifb');
+  RegisterOperation($11, 2, IfcValue, 'Ifc');
+  RegisterOperation($12, 2, IfeValue, 'Ife');
+  RegisterOperation($13, 2, IfnValue, 'Ifn');
+  RegisterOperation($14, 2, IfgValue, 'Ifg');
+  RegisterOperation($15, 2, IfaValue, 'Ifa');
+  RegisterOperation($16, 2, IflValue, 'Ifl');
+  RegisterOperation($17, 2, IfuValue, 'Ifu');
 
-  RegisterOperation($1a, 3, AdxValue);
-  RegisterOperation($1b, 3, sbxValue);
+  RegisterOperation($1a, 3, AdxValue, 'Adx');
+  RegisterOperation($1b, 3, sbxValue, 'Sbx');
 
-  RegisterOperation($1e, 2, StiValue);
-  RegisterOperation($1f, 2, StdValue);
+  RegisterOperation($1e, 2, StiValue, 'Sti');
+  RegisterOperation($1f, 2, StdValue, 'Std');
 
   //non basic operations. Lower 5 bits are always 0
-  RegisterOperation($1 shl 5, 3, JSR);
+  RegisterOperation($1 shl 5, 3, JSR, 'Jsr');
 
-  RegisterOperation($8 shl 5, 4, INT);
-  RegisterOperation($9 shl 5, 1, GetIA);
-  RegisterOperation($a shl 5, 1, SetIA);
-  RegisterOperation($b shl 5, 3, RFI);
-  RegisterOperation($c shl 5, 2, IAQ);
+  RegisterOperation($8 shl 5, 4, INT, 'Int');
+  RegisterOperation($9 shl 5, 1, GetIA, 'IAS');
+  RegisterOperation($a shl 5, 1, SetIA, 'IAS');
+  RegisterOperation($b shl 5, 3, RFI, 'RFI');
+  RegisterOperation($c shl 5, 2, IAQ, 'IAQ');
 
-  RegisterOperation($10 shl 5, 2, HWN);
-  RegisterOperation($11 shl 5, 4, HWQ, True);
-  RegisterOperation($12 shl 5, 4, HWI);
+  RegisterOperation($10 shl 5, 2, HWN, 'HWN');
+  RegisterOperation($11 shl 5, 4, HWQ, 'HW', True);
+  RegisterOperation($12 shl 5, 4, HWI, 'HWI');
 end;
 
 procedure TD16Operation.INT(var ALeft, ARight: Word);
