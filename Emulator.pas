@@ -24,6 +24,8 @@ type
     FOnMessage: TMessageEvent;
     FUpdateQuery: TObjectList<TVirtualDevice>;
     FInterruptQueue: TQueue<Word>;
+    FLog: TStringList;
+    FUseLogging: Boolean;
     procedure ResetRam();
     procedure ResetRegisters();
     procedure AddCycles(ACycles: Integer);
@@ -64,6 +66,7 @@ type
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
     property InterruptQueue: TQueue<Word> read FInterruptQueue;
+    property UseLogging: Boolean read FUseLogging write FUseLogging;
   end;
 
 implementation
@@ -137,6 +140,7 @@ begin
   FDevices.Free;
   FUpdateQuery.Free;
   FInterruptQueue.Free;
+  FLog.Free;
   inherited;
 end;
 
@@ -213,6 +217,10 @@ begin
       Sleep(20);
     end;
   end;
+  if FUseLogging then
+  begin
+    FLog.SaveToFile('D:\RunLog.txt');
+  end;
 end;
 
 procedure TD16Emulator.ExecuteOperation(AOpCode: Word; var ALeft, ARight: Word; var AIsReadOnly: Boolean);
@@ -222,6 +230,10 @@ begin
   LItem := FOperations.GetOperation(AOpCode);
   if Assigned(LItem) then
   begin
+    if FUseLogging then
+    begin
+      FLog.Add(LItem.OperationName);
+    end;
     LItem.Operation(ALeft, ARight);
     AddCycles(LItem.Cost);
     AIsReadOnly := LItem.ReadOnly;
@@ -304,6 +316,9 @@ end;
 
 procedure TD16Emulator.Init;
 begin
+  FLog := TStringList.Create();
+  FLog.Sorted := True;
+  FLog.Duplicates := dupIgnore;
   FDevices := TObjectList<TVirtualDevice>.Create();
   FUpdateQuery := TObjectList<TVirtualDevice>.Create(False);
   FInterruptQueue := TQueue<Word>.Create();
@@ -467,6 +482,7 @@ begin
     FCycles := 0;
     FLastSleep := Now();
     FLastUpdate := Now();
+    FLog.Clear;
     DoOnStep();
   end;
 end;
