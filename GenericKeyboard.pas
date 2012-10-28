@@ -9,7 +9,6 @@ type
   TGenericKeyboard = class(TVirtualDevice)
   private
     FKeyBuffer: TList;
-    FLastKey: Word;
     FInterruptAddress: Word;
     FKeyStates: TKeyboardState;
     FOldKeyStates: TKeyboardState;

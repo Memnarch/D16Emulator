@@ -75,7 +75,7 @@ begin
   inherited;
   if (FInterval <> 0) and (MilliSecondsBetween(FLastTick, Now()) >= FInterval) then
   begin
-    SiMain.LogMessage('ticket');
+//    SiMain.LogMessage('ticket');
     FLastTick := Now();
     Inc(FCalls);
     if (FMessage <> 0) then
