@@ -6,6 +6,7 @@ uses
   Classes, Types, Windows, Messages, SysUtils, SyncObjs, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice, SiAuto, SmartInspect;
 
 type
+  TEmulationState = (esStopped, esRunning, esPaused);
 
   TD16Emulator = class(TThread)
   private
@@ -14,7 +15,7 @@ type
     FRefreshCycles: Integer;
     FLastSleep: TDateTime;
     FLastUpdate: TDateTime;
-    FRunning: Boolean;
+    FState: TEmulationState;
     FOnStep: TEvent;
     FOperations: TCPUOperations;
     FCycles: Cardinal;
@@ -26,6 +27,7 @@ type
     FInterruptQueue: TQueue<Word>;
     FLog: TStringList;
     FUseLogging: Boolean;
+    FOnPause: TEvent;
     procedure ResetRam();
     procedure ResetRegisters();
     procedure AddCycles(ACycles: Integer);
@@ -37,6 +39,7 @@ type
     procedure DoOnStep();
     procedure DoOnIdle();
     procedure DoOnMessage();
+    procedure DoOnPause();
     procedure Push(var AVal: Word);
     procedure Pop(var AVal: Word);
     procedure InitBaseDevices();
@@ -46,6 +49,9 @@ type
     procedure CallSWInterrupt(AMessage: Word);
     procedure JumpOverCondition();
     procedure Init();
+    procedure InternalPause();
+    procedure ProcessMessages();
+    procedure HandleMessages(AMSG: TMsg);
   protected
     procedure Execute(); override;
   public
@@ -55,6 +61,7 @@ type
     procedure Reset();
     procedure Run();
     procedure Stop();
+    procedure Pause();
     procedure Step();
     procedure RegisterDevice(ADevice: TVirtualDevice);
     property Ram: TD16Ram read FRam write FRam;
@@ -62,12 +69,16 @@ type
     property OnStep: TEvent read FOnStep write FOnStep;
     property OnIdle: TEvent read FOnIdle write FOnIdle;
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
+    property OnPause: TEvent read FOnPause write FOnPause;
     property Operations: TCPUOperations read FOperations;
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
     property InterruptQueue: TQueue<Word> read FInterruptQueue;
     property UseLogging: Boolean read FUseLogging write FUseLogging;
   end;
+
+const
+    WM_PAUSE = WM_USER + 1;
 
 implementation
 
@@ -160,6 +171,14 @@ begin
   end;
 end;
 
+procedure TD16Emulator.DoOnPause;
+begin
+  if Assigned(FOnPause) then
+  begin
+    Synchronize(FOnPause);
+  end;
+end;
+
 procedure TD16Emulator.DoOnStep;
 begin
   if Assigned(FOnStep) then
@@ -199,14 +218,15 @@ begin
   inherited;
   while not Terminated do
   begin
-    if FRunning then
+    ProcessMessages();
+    if FState = esRunning then
     begin
       try
         Step();
       except
         on E: Exception do
         begin
-          FRunning := False;
+          FState := esStopped;
           FMessage := E.Message;
           Synchronize(DoOnMessage);
         end;
@@ -314,6 +334,16 @@ begin
   end;
 end;
 
+procedure TD16Emulator.HandleMessages(AMSG: TMsg);
+begin
+  case AMSG.message of
+    WM_PAUSE:
+    begin
+      InternalPause();
+    end;
+  end;
+end;
+
 procedure TD16Emulator.Init;
 begin
   FLog := TStringList.Create();
@@ -335,6 +365,12 @@ begin
   RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
 //  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+end;
+
+procedure TD16Emulator.InternalPause;
+begin
+  FState := esPaused;
+  DoOnPause();
 end;
 
 procedure TD16Emulator.JumpOverCondition;
@@ -363,7 +399,7 @@ var
   LStream: TMemoryStream;
   i: Integer;
 begin
-  if not FRunning then
+  if FState = esStopped then
   begin
     Reset();
     LStream := TMemoryStream.Create();
@@ -378,6 +414,11 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TD16Emulator.Pause;
+begin
+  PostThreadMessage(Self.ThreadID, WM_PAUSE, 0, 0);
 end;
 
 procedure TD16Emulator.Pop(var AVal: Word);
@@ -409,6 +450,18 @@ begin
   if (FOperations.UseInterruptQuery) and (FInterruptQueue.Count > 0) then
   begin
     CallSWInterrupt(FInterruptQueue.Dequeue);
+  end;
+end;
+
+procedure TD16Emulator.ProcessMessages;
+var
+  LMSG: TMsg;
+begin
+  if PeekMessage(LMSG, 0,  0, 0, PM_REMOVE) then
+  begin
+    TranslateMessage(LMSG);
+    DispatchMessage(LMSG);
+    HandleMessages(LMSG);
   end;
 end;
 
@@ -474,7 +527,7 @@ end;
 
 procedure TD16Emulator.Reset;
 begin
-  if not FRunning then
+  if FState = esStopped then
   begin
     ResetRegisters();
     ResetRam();
@@ -509,17 +562,20 @@ end;
 
 procedure TD16Emulator.Run;
 begin
-  if not FRunning then
+  if not (FState = esRunning) then
   begin
-    ResetRegisters();
+    if FState = esStopped then //otherwhise we resume from paused state, no resetting required
+    begin
+      ResetRegisters();
+    end;
     FLastSleep := Now();
-    FRunning := True;
+    FState := esRunning;
   end;
 end;
 
 procedure TD16Emulator.Stop;
 begin
-  FRunning := False;
+  FState := esStopped;
 end;
 
 procedure TD16Emulator.WriteValue(AToCode: Byte; AToAdress: Integer; AVal: Word; AModOnlySP: Boolean = False);
