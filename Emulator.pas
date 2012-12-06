@@ -3,7 +3,7 @@ unit Emulator;
 interface
 
 uses
-  Classes, Types, Windows, Messages, SysUtils, SyncObjs, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice, SiAuto, SmartInspect;
+  Classes, Types, Windows, Messages, SysUtils, SyncObjs, Generics.Collections, EmuTypes, CPUOperations, VirtualDevice;// SiAuto, SmartInspect;
 
 type
   TEmulationState = (esStopped, esRunning, esPaused);

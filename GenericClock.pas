@@ -3,7 +3,7 @@ unit GenericClock;
 interface
 
 uses
-  Classes, Types, EmuTypes, VirtualDevice, ExtCtrls, SiAuto, SmartInspect;
+  Classes, Types, EmuTypes, VirtualDevice, ExtCtrls, Debug;
 
 type
 

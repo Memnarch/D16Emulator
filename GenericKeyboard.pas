@@ -3,7 +3,7 @@ unit GenericKeyboard;
 interface
 
 uses
-  Classes, Types, Windows, SysUtils, EmuTypes, VirtualDevice, Generics.Collections, SiAuto, SmartInspect;
+  Classes, Types, Windows, SysUtils, EmuTypes, VirtualDevice, Generics.Collections, Debug;
 
 type
   TGenericKeyboard = class(TVirtualDevice)

@@ -3,7 +3,7 @@ unit VirtualDevice;
 interface
 
 uses
-  Classes, Types, EmuTypes, SiAuto, SmartInspect;
+  Classes, Types, EmuTypes;//, SiAuto, SmartInspect;
 
 type
   TVirtualDevice = class

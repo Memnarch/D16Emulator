@@ -3,7 +3,7 @@ unit D16Operations;
 interface
 
 uses
-  Generics.Collections, CPUOperations, EmuTypes, VirtualDevice, SiAuto, SmartInspect;
+  Generics.Collections, CPUOperations, EmuTypes, VirtualDevice, Debug;
 
 type
   TD16Operation = class(TCPUOperations)
