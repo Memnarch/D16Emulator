@@ -7,4 +7,6 @@
 *.asm
 *.rar
 *.bak
+*.dasm16
 thumbs.db
+Debug/
