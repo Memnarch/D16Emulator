@@ -31,9 +31,12 @@ type
     FOnPause: TEvent;
     FAlertChangeQueue: TQueue<TAlertPointModification>;
     FAlertAccessLock: TCriticalSection;
+    FCallStack: TStack<Word>;
     FOnAlert: TAlertEvent;
     FOnRun: TEvent;
     FLastAlertAddress: Integer;
+    FOnReturn: TEvent;
+    FOnCall: TEvent;
     procedure ResetRam();
     procedure ResetRegisters();
     procedure ResetAlertPoints();
@@ -49,6 +52,8 @@ type
     procedure DoOnPause();
     procedure DoOnAlert();
     procedure DoOnRun();
+    procedure DoOnCall();
+    procedure DoOnReturn();
     procedure Push(var AVal: Word);
     procedure Pop(var AVal: Word);
     procedure InitBaseDevices();
@@ -85,6 +90,8 @@ type
     property OnPause: TEvent read FOnPause write FOnPause;
     property OnAlert: TAlertEvent read FOnAlert write FOnAlert;
     property OnRun: TEvent read FOnRun write FOnRun;
+    property OnCall: TEvent read FOnCall write FOnCall;
+    property OnReturn: TEvent read FOnReturn write FOnReturn;
     property Operations: TCPUOperations read FOperations;
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
@@ -191,6 +198,15 @@ begin
   end;
 end;
 
+procedure TD16Emulator.DoOnCall;
+begin
+  FCallStack.Push(FRam[FRegisters[CRegSP]]);//we read the return adress which has been pushed by JSR
+  if Assigned(FOnCall) then
+  begin
+    Synchronize(FOnCall);
+  end;
+end;
+
 procedure TD16Emulator.DoOnIdle;
 begin
   if Assigned(FOnIdle) then
@@ -212,6 +228,18 @@ begin
   if Assigned(FOnPause) then
   begin
     Synchronize(FOnPause);
+  end;
+end;
+
+procedure TD16Emulator.DoOnReturn;
+begin
+  if (FCallStack.Count > 0) and (FCallStack.Peek = FRegisters[CRegPC]) then
+  begin
+    FCallStack.Pop;
+    if Assigned(FOnReturn) then
+    begin
+      Synchronize(FOnReturn);
+    end;
   end;
 end;
 
@@ -265,9 +293,22 @@ begin
   begin
     JumpOverCondition();
   end;
+
+  if LOpCode = $1 shl 5 then//opcode = JSR
+  begin
+    DoOnCall();
+  end
+  else
+  begin
+    if (LOpCode = $1) and (LLeft = $1c) and (LRight = $18) then
+    begin
+      //triggered by set pc, pop
+      DoOnReturn();
+    end;
+  end;
+
   ProcessDeviceUpdates();
   ProcessInterruptQueue();
-
   DoOnStep();
 end;
 
@@ -408,6 +449,7 @@ procedure TD16Emulator.Init;
 begin
   FAlertChangeQueue := TQueue<TAlertPointModification>.Create();
   FAlertAccessLock := TCriticalSection.Create();
+  FCallStack := TStack<Word>.Create();
   FLog := TStringList.Create();
   FLog.Sorted := True;
   FLog.Duplicates := dupIgnore;
