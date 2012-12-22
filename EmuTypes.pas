@@ -8,9 +8,17 @@ type
   TD16RegisterMem = array[0..11] of Word;
   PD16RegisterMem = ^TD16RegisterMem;
 
+  TD16AlertPoints = array[0..$FFFF] of Boolean;
+
+  TAlertPointModification = record
+    Address: Word;
+    Enabled: Boolean;
+  end;
+
   TEvent = procedure() of object;
   TMessageEvent = procedure(AMessage: string) of object;
   TInterruptEvent = procedure(AMessage: Word) of object;
+  TAlertEvent = procedure(var APauseExecution: Boolean) of object;
 
 const
   CRegA = 0;

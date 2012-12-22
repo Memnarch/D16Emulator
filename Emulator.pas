@@ -11,6 +11,7 @@ type
   TD16Emulator = class(TThread)
   private
     FRam: TD16Ram;
+    FAlertPoints: TD16AlertPoints;
     FRegisters: TD16RegisterMem;
     FRefreshCycles: Integer;
     FLastSleep: TDateTime;
@@ -28,8 +29,14 @@ type
     FLog: TStringList;
     FUseLogging: Boolean;
     FOnPause: TEvent;
+    FAlertChangeQueue: TQueue<TAlertPointModification>;
+    FAlertAccessLock: TCriticalSection;
+    FOnAlert: TAlertEvent;
+    FOnRun: TEvent;
+    FLastAlertAddress: Integer;
     procedure ResetRam();
     procedure ResetRegisters();
+    procedure ResetAlertPoints();
     procedure AddCycles(ACycles: Integer);
     function ReadValue(AFromCode: Byte; var AUsedAddress: Integer; AModifySP: Boolean = False): Word;
     procedure WriteValue(AToCode: Byte; AToAdress: Integer; AVal: Word; AModOnlySP: Boolean = False);
@@ -40,6 +47,8 @@ type
     procedure DoOnIdle();
     procedure DoOnMessage();
     procedure DoOnPause();
+    procedure DoOnAlert();
+    procedure DoOnRun();
     procedure Push(var AVal: Word);
     procedure Pop(var AVal: Word);
     procedure InitBaseDevices();
@@ -50,7 +59,10 @@ type
     procedure JumpOverCondition();
     procedure Init();
     procedure InternalPause();
+    procedure InternalOnAlert();
     procedure ProcessMessages();
+    procedure UpdateAlertPoints();
+    procedure CheckAlertPoints();
     procedure HandleMessages(AMSG: TMsg);
   protected
     procedure Execute(); override;
@@ -64,12 +76,15 @@ type
     procedure Pause();
     procedure Step();
     procedure RegisterDevice(ADevice: TVirtualDevice);
+    procedure SetAlertPoint(AAddress: Word; AEnabled: Boolean);
     property Ram: TD16Ram read FRam write FRam;
     property Registers: TD16RegisterMem read FRegisters write FRegisters;
     property OnStep: TEvent read FOnStep write FOnStep;
     property OnIdle: TEvent read FOnIdle write FOnIdle;
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
     property OnPause: TEvent read FOnPause write FOnPause;
+    property OnAlert: TAlertEvent read FOnAlert write FOnAlert;
+    property OnRun: TEvent read FOnRun write FOnRun;
     property Operations: TCPUOperations read FOperations;
     property Cycles: Cardinal read FCycles write FCycles;
     property Devices: TObjectList<TVirtualDevice> read FDevices;
@@ -118,6 +133,17 @@ begin
   end;
 end;
 
+procedure TD16Emulator.CheckAlertPoints;
+begin
+  if (Self.FState = esRunning) and FAlertPoints[FRegisters[CRegPC]]
+    and (FRegisters[CRegPC] <> FLastAlertAddress)
+  then
+  begin
+    FLastAlertAddress := FRegisters[CRegPC];
+    DoOnAlert();
+  end;
+end;
+
 constructor TD16Emulator.Create;
 begin
   inherited;
@@ -152,7 +178,17 @@ begin
   FUpdateQuery.Free;
   FInterruptQueue.Free;
   FLog.Free;
+  FAlertChangeQueue.Free;
+  FAlertAccessLock.Free;
   inherited;
+end;
+
+procedure TD16Emulator.DoOnAlert;
+begin
+  if Assigned(FOnAlert) then
+  begin
+    Synchronize(InternalOnAlert);
+  end;
 end;
 
 procedure TD16Emulator.DoOnIdle;
@@ -179,11 +215,33 @@ begin
   end;
 end;
 
+procedure TD16Emulator.DoOnRun;
+begin
+  if Assigned(FOnRun) then
+  begin
+    Synchronize(FOnRun);
+  end;
+end;
+
 procedure TD16Emulator.DoOnStep;
 begin
   if Assigned(FOnStep) then
   begin
     Synchronize(FOnStep);
+  end;
+end;
+
+procedure TD16Emulator.SetAlertPoint(AAddress: Word; AEnabled: Boolean);
+var
+  LAlert: TAlertPointModification;
+begin
+  FAlertAccessLock.Enter();
+  try
+    LAlert.Address := AAddress;
+    LAlert.Enabled := AEnabled;
+    FAlertChangeQueue.Enqueue(LAlert);
+  finally
+    FAlertAccessLock.Leave;
   end;
 end;
 
@@ -218,7 +276,9 @@ begin
   inherited;
   while not Terminated do
   begin
-    ProcessMessages();
+    ProcessMessages();//this call can trigger pausing the emulator
+    UpdateAlertPoints();
+    CheckAlertPoints(); // this call can trigger pausing the emulation, too
     if FState = esRunning then
     begin
       try
@@ -346,6 +406,8 @@ end;
 
 procedure TD16Emulator.Init;
 begin
+  FAlertChangeQueue := TQueue<TAlertPointModification>.Create();
+  FAlertAccessLock := TCriticalSection.Create();
   FLog := TStringList.Create();
   FLog.Sorted := True;
   FLog.Duplicates := dupIgnore;
@@ -365,6 +427,19 @@ begin
   RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
 //  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+end;
+
+procedure TD16Emulator.InternalOnAlert;
+var
+  LPause: Boolean;
+begin
+  //this emthod is already executed synchronized!
+  LPause := False;
+  FOnAlert(LPause);
+  if LPause then
+  begin
+    InternalPause();
+  end;
 end;
 
 procedure TD16Emulator.InternalPause;
@@ -531,12 +606,23 @@ begin
   begin
     ResetRegisters();
     ResetRam();
+    ResetAlertPoints();
     FRefreshCycles := 0;
     FCycles := 0;
     FLastSleep := Now();
     FLastUpdate := Now();
     FLog.Clear;
     DoOnStep();
+  end;
+end;
+
+procedure TD16Emulator.ResetAlertPoints;
+var
+  i: Integer;
+begin
+  for i := Low(FAlertPoints) to High(FAlertPoints) do
+  begin
+    FAlertPoints[i] := False;
   end;
 end;
 
@@ -567,8 +653,10 @@ begin
     if FState = esStopped then //otherwhise we resume from paused state, no resetting required
     begin
       ResetRegisters();
+      FLastAlertAddress := -1;
     end;
     FLastSleep := Now();
+    DoOnRun();
     FState := esRunning;
   end;
 end;
@@ -576,6 +664,24 @@ end;
 procedure TD16Emulator.Stop;
 begin
   FState := esStopped;
+end;
+
+procedure TD16Emulator.UpdateAlertPoints;
+var
+  LAlert: TAlertPointModification;
+begin
+  if not (FState = esRunning) then Exit;
+
+  FAlertAccessLock.Enter();
+  try
+    while FAlertChangeQueue.Count > 0 do
+    begin
+      LAlert := FAlertChangeQueue.Dequeue();
+      FAlertPoints[LAlert.Address] := LAlert.Enabled;
+    end;
+  finally
+    FAlertAccessLock.Leave;
+  end;
 end;
 
 procedure TD16Emulator.WriteValue(AToCode: Byte; AToAdress: Integer; AVal: Word; AModOnlySP: Boolean = False);
