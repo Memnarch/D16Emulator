@@ -34,6 +34,16 @@ const
   CRegEX = 10;
   CRegIA = 11;
 
+function RegisterToIndex(ARegister: string): Integer;
+
 implementation
+
+uses
+  StrUtils;
+
+function RegisterToIndex(ARegister: string): Integer;
+begin
+  Result := AnsiIndexText(ARegister, ['A', 'B', 'C', 'X', 'Y', 'Z', 'I', 'J', 'PC', 'SP', 'EX', 'IA']);
+end;
 
 end.
