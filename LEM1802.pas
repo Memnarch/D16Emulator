@@ -13,12 +13,19 @@ type
     FMonitor: TBasicScreen;
     FBuffer: TBitmap;
     FFont: TBitmap;
+    FChar: TBitmap;
     FRectMap: TBitMap;
     FColors: array[0..16] of TColor;
+    FBitFont: array[0..127] of DWord;
+    FTestChar: DWord;
     procedure RenderScreen(Sender: TObject);
     procedure RenderText();
-    procedure DrawChar(AScreenX, AScreenY, ACharX, ACharY: Integer; AFGColor, ABGColor: Byte);
+    procedure DrawChar(AScreenX, AScreenY, ACharIndex: Integer; AFGColor, ABGColor: Byte);
     procedure InitDefaultColors();
+    procedure DrawByteChar(ACanvas: TCanvas; AChar: DWord; AX, AY: Integer);
+    procedure ConvertFontToChars();
+    procedure CharsToFont();
+    function GraphicToChar(ACanvas: TCanvas; AX, AY: Integer): DWord;
   public
     constructor Create(ARegisters:PD16RegisterMem; ARam: PD16Ram);
     destructor Destroy(); override;
@@ -32,6 +39,38 @@ const
 
 
 { TLEM1802 }
+
+procedure TLEM1802.CharsToFont;
+var
+  LTest: TBitmap;
+  i: Integer;
+begin
+  //this function was used to test if the dump from grafik to Bytefont worked
+  LTest := TBitmap.Create();
+  try
+    LTest.SetSize(4, 8*128);
+    for i := 0 to 127 do
+    begin
+      DrawByteChar(LTest.Canvas, FBitFont[i], 0, 8*i);
+    end;
+    LTest.SaveToFile('Dump.bmp');
+  finally
+    LTest.Free;
+  end;
+end;
+
+procedure TLEM1802.ConvertFontToChars;
+var
+  LX, LY: Integer;
+begin
+  for LY := 0 to 3 do
+  begin
+    for LX := 0 to 31 do
+    begin
+      FBitFont[LY*32+LX] := GraphicToChar(FFont.Canvas, LX*4, LY*8);
+    end;
+  end;
+end;
 
 constructor TLEM1802.Create(ARegisters: PD16RegisterMem; ARam: PD16Ram);
 begin
@@ -49,9 +88,15 @@ begin
   FRectMap := TBitmap.Create();
   FRectMap.SetSize(4, 8);
 
+  FChar := TBitmap.Create();
+  FChar.SetSize(4, 8);
+  FChar.PixelFormat := pf1bit;
+  FChar.Monochrome := True;
+
   FFont := TBitmap.Create();
   FFont.Monochrome := True;
   FFont.LoadFromFile('Font.bmp');
+  ConvertFontToChars();
 
   FMonitor := TBasicScreen.Create(nil);
   FMonitor.ScreenTimer.Enabled := True;
@@ -59,6 +104,8 @@ begin
   FMonitor.ClientHeight := FBuffer.Height*4;
   FMonitor.Screen.OnPaint := RenderScreen;
   FMonitor.Caption := 'LEM1802';
+  //testchar "F"
+  FTestChar := 4278782208;
 end;
 
 destructor TLEM1802.Destroy;
@@ -69,13 +116,57 @@ begin
   inherited;
 end;
 
-procedure TLEM1802.DrawChar(AScreenX, AScreenY, ACharX, ACharY: Integer; AFGColor, ABGColor: Byte);
+procedure TLEM1802.DrawByteChar(ACanvas: TCanvas; AChar: DWord; AX, AY: Integer);
+var
+  x, y: Integer;
+  LColor: TColor;
+  LShift: Byte;
+begin
+  for y := 0 to 7 do
+  begin
+    for x := 0 to 3 do
+    begin
+      LShift := (31-(x*8+y));
+      if((AChar shr LShift) and 1) = 1 then
+      begin
+        LColor := clWhite;// clWhite;
+      end
+      else
+      begin
+        LColor := 0;// clNone;
+      end;
+      ACanvas.Pixels[x + AX, 7-y + AY] := LColor;
+    end;
+  end;
+end;
+
+procedure TLEM1802.DrawChar(AScreenX, AScreenY, ACharIndex: Integer; AFGColor, ABGColor: Byte);
 begin
   FRectMap.Canvas.Brush.Color := FColors[AFGColor];
   FRectMap.Canvas.FillRect(FRectMap.Canvas.ClipRect);
+  DrawByteChar(FChar.Canvas, FBitFont[ACharIndex], 0, 0);
   FBuffer.Canvas.Brush.Color := FColors[ABGColor];
   FBuffer.Canvas.FillRect(Rect(AScreenX, AScreenY, AScreenX+4, AScreenY+8));
-  MaskBlt(FBuffer.Canvas.Handle, AScreenX, AScreenY, 4, 8, FRectMap.Canvas.Handle, 0,0, FFont.Handle, ACharX, ACharY, MakeROP4(SRCCOPY, DSTCOPY));
+  MaskBlt(FBuffer.Canvas.Handle, AScreenX, AScreenY, 4, 8, FRectMap.Canvas.Handle, 0,0, FChar.Handle, 0, 0, MakeROP4(SRCCOPY, DSTCOPY));
+end;
+
+function TLEM1802.GraphicToChar(ACanvas: TCanvas; AX, AY: Integer): DWord;
+var
+  LX, LY: Integer;
+  LShift: Byte;
+begin
+  Result := 0;
+  for LY := 0 to 7 do
+  begin
+    for LX := 0 to 3 do
+    begin
+      LShift := (31-(LX*8+LY));
+      if ACanvas.Pixels[LX + AX, AY+7-LY] <> 0 then
+      begin
+        Result := Result or (1 shl LShift);
+      end;
+    end;
+  end;
 end;
 
 procedure TLEM1802.InitDefaultColors;
@@ -161,7 +252,6 @@ end;
 procedure TLEM1802.RenderText;
 var
   LLeter: Byte;
-  LX, LY: Cardinal;
   i, k: Cardinal;
   LAddr: Integer;
 begin
@@ -171,10 +261,7 @@ begin
     for k := 0 to 31 do
     begin
       LLeter := FRam[LAddr] and $7f; // get the lower 7 bits
-      LY := LLeter div 32 * 8;
-      LX := LLeter mod 32 * 4;
-      //FBuffer.Canvas.CopyRect(Rect(k*4,i*8, k*4+3, i*8+7), FFont.Canvas, Rect(LX, LY, LX+3, LY+7));
-      DrawChar(k*4, i*8, LX, LY, (FRam[LAddr] shr 12) and $f, (FRam[LAddr] shr 8) and $f);
+      DrawChar(k*4, i*8, LLeter, (FRam[LAddr] shr 12) and $f, (FRam[LAddr] shr 8) and $f);
       Inc(LAddr);
     end;
   end;
