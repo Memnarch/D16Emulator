@@ -341,7 +341,7 @@ begin
   end;
   if FUseLogging then
   begin
-    FLog.SaveToFile('D:\RunLog.txt');
+    FLog.SaveToFile('RunLog.txt');
   end;
 end;
 
@@ -378,43 +378,51 @@ begin
   begin
     Result := -AOperand - 1;
   end;
+
   if (AOperand >= 8) and (AOperand <= $f) then//[register]
   begin
     Result := FRegisters[AOperand-8];
   end;
-  if (AOperand >= $10) and (AOperand <= $17) then
+
+  if (AOperand >= $10) and (AOperand <= $17) then //[register + next word]
   begin
-    Result := FRegisters[AOperand-$10] + FRam[FRegisters[CRegPC]];
+    Result := (FRegisters[AOperand-$10] + FRam[FRegisters[CRegPC]]) mod $10000;
     if not FOperations.Skipping then
     begin
       AddCycles(1);
     end;
   end;
+
   if (AOperand  = $18) or (AOperand = $19) then //[sp], push/pop behaviour handled before this function call by read/write method
   begin
     Result := FRegisters[CRegSP];
   end;
-  if AOperand = $1a then
+
+  if AOperand = $1a then //[SP + next word]
   begin
-    Result := FRegisters[CRegSP] + FRam[FRegisters[CRegPC]];
+    Result := (FRegisters[CRegSP] + FRam[FRegisters[CRegPC]]) mod $10000;
     if not FOperations.Skipping then
     begin
       AddCycles(1);
     end;
   end;
-  if AOperand = $1b then
+
+  if AOperand = $1b then //SP
   begin
     Result := -CRegSP -1;
   end;
-  if AOperand = $1c then
+
+  if AOperand = $1c then //PC
   begin
     Result := -CRegPC-1;
   end;
-  if AOperand = $1d then
+
+  if AOperand = $1d then //EX
   begin
     Result := -CRegEX-1;
   end;
-  if AOperand = $1e then
+
+  if AOperand = $1e then //[Next Word]
   begin
     Result := FRam[FRegisters[CRegPC]];
     if not FOperations.Skipping then
@@ -422,7 +430,8 @@ begin
       AddCycles(1);
     end;
   end;
-  if AOperand = $1f then
+
+  if AOperand = $1f then //next word (literal)
   begin
     Result := FRegisters[CRegPC];
     if not FOperations.Skipping then
@@ -430,7 +439,8 @@ begin
       AddCycles(1);
     end;
   end;
-  if (AOperand >= $20) and (AOperand <= $3f)then
+
+  if (AOperand >= $20) and (AOperand <= $3f)then //literal value -1 to 30
   begin
     Result := -AOperand-1;
   end;
