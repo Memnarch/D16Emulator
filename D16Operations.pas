@@ -195,7 +195,7 @@ begin
   end
   else
   begin
-    raise Exception.Create('No existing device with ID ' + IntToStr(ALeft));
+    raise EAbort.Create('No existing device with ID ' + IntToStr(ALeft));
   end;
 end;
 
