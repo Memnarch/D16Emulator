@@ -101,6 +101,7 @@ type
 
 const
     WM_PAUSE = WM_USER + 1;
+    WM_STOP = WM_USER + 2;
 
 implementation
 
@@ -442,6 +443,12 @@ begin
     begin
       InternalPause();
     end;
+
+    WM_STOP:
+    begin
+      FState := esStopped;
+      Self.Terminate();
+    end;
   end;
 end;
 
@@ -705,7 +712,7 @@ end;
 
 procedure TD16Emulator.Stop;
 begin
-  FState := esStopped;
+  PostThreadMessage(Self.ThreadID, WM_STOP, 0, 0);
 end;
 
 procedure TD16Emulator.UpdateAlertPoints;
