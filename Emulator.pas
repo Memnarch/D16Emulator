@@ -485,7 +485,7 @@ begin
   RegisterDevice(TLEM1802.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
-//  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+  RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
 end;
 
 procedure TD16Emulator.InternalOnAlert;
