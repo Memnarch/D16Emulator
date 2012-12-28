@@ -32,6 +32,7 @@ type
     FWorldMatrix: TMatrixClass4D;
     FMoveMatrix: TMatrixClass4D;
     FViewMatrix: TMatrixClass4D;
+    FRotation: Integer;
     procedure RenderScreen(Sender: TObject);
     procedure DrawBuffer();
     procedure DrawVertices();
@@ -65,9 +66,9 @@ var
 begin
   for i := 0 to FVerticesToRender - 1 do
   begin
-    F4DVertices[i].Element[0] := FVertices[i].X;
-    F4DVertices[i].Element[1] := FVertices[i].Y;
-    F4DVertices[i].Element[2] := FVertices[i].Z;
+    F4DVertices[i].Element[0] := FVertices[i].X - 128;
+    F4DVertices[i].Element[2] := FVertices[i].Y - 128;
+    F4DVertices[i].Element[1] := FVertices[i].Z - 128;
     F4DVertices[i].Element[3] := 1;//the W value
   end;
 end;
@@ -77,6 +78,7 @@ var
   i: Integer;
 begin
   inherited;
+  FRotation := 30;
   FHardwareID := $42babf3c;
   FHardwareVerion := $0003;
   FManufactorID := $1eb37e91;
@@ -93,6 +95,7 @@ begin
   FState := STATE_NO_DATA;
   FError := ERROR_NONE;
 
+  FProjectionMatrix := TMatrixClass4D.Create();
   FMoveMatrix := TMatrixClass4D.Create();
   FRotateXMatrix := TMatrixClass4D.Create();
   FRotateYMatrix := TMatrixClass4D.Create();
@@ -100,10 +103,16 @@ begin
   FWorldMatrix := TMatrixClass4D.Create();
   FViewMatrix := TMatrixClass4D.Create();
 
-  FViewMatrix.SetAsMoveMatrix(0, 0, 1000);
+  FViewMatrix.SetAsMoveMatrix(0, 0, 400);
+  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
+  FRotateYMatrix.SetAsRotationYMatrix(DegToRad(90));
+  FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
+  FViewMatrix.MultiplyMatrix4D(FRotateXMatrix);
+  FViewMatrix.MultiplyMatrix4D(FRotateYMatrix);
+  FViewMatrix.MultiplyMatrix4D(FRotateZMatrix);
 
   FMoveMatrix.SetAsMoveMatrix(0, 0, 0);
-  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(10));
+  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
   FRotateYMatrix.SetAsRotationYMatrix(DegToRad(0));
   FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
   FWorldMatrix.CopyFromMatrix4D(FMoveMatrix);
@@ -111,7 +120,6 @@ begin
   FWorldMatrix.MultiplyMatrix4D(FRotateYMatrix);
   FWorldMatrix.MultiplyMatrix4D(FRotateZMatrix);
   FWorldMatrix.MultiplyMatrix4D(FViewMatrix);
-  FProjectionMatrix := TMatrixClass4D.Create();
   FProjectionMatrix.SetAsPerspectiveProjectionMatrix(100, 200, 64, 64);
   FProjectionMatrix.MultiplyMatrix4D(FWorldMatrix);
 
@@ -148,19 +156,30 @@ end;
 procedure TVectorDisplay.DrawVertices;
 var
   i: Integer;
-
+  LColorIndex: Byte;
 begin
   CopyVertices();
   TransformVertices();
-  FBuffer.Canvas.Pen.Color := clWhite;
+
   if FVerticesToRender > 0 then
   begin
-    FBuffer.Canvas.MoveTo(Round(F4DVertices[FVerticesToRender-1].X), Round(F4DVertices[FVerticesToRender-1].Y));
+    FBuffer.Canvas.MoveTo(Round(F4DVertices[0].X), Round(F4DVertices[0].Y));
+//    FBuffer.Canvas.MoveTo(Round(F4DVertices[FVerticesToRender-1].X), Round(F4DVertices[FVerticesToRender-1].Y));
+    LColorIndex := FVertices[0].Info and $3;
   end;
   for i := 0 to FVerticesToRender - 1 do
   begin
-    FBuffer.Canvas.LineTo(Round(F4DVertices[i].X), Round(F4DVertices[i].Y));
+    if LColorIndex > 0 then
+    begin
+      case LColorIndex of
+        1: FBuffer.Canvas.Pen.Color := clRed;
+        2: FBuffer.Canvas.Pen.Color := clGreen;
+        3: FBuffer.Canvas.Pen.Color := clBlue;
+      end;
+      FBuffer.Canvas.LineTo(Round(F4DVertices[i].X), Round(F4DVertices[i].Y));
+    end;
     FBuffer.Canvas.MoveTo(Round(F4DVertices[i].X), Round(F4DVertices[i].Y));
+    LColorIndex := FVertices[i].Info and $3;
   end;
 end;
 
