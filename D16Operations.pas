@@ -346,9 +346,7 @@ procedure TD16Operation.RFI(var ALeft, ARight: Word);
 begin
   UseInterruptQuery := True;
   Pop(Registers[CRegA]);
-  SiMain.LogInteger('PC-Before', Registers[CRegPC]);
   Pop(Registers[CRegPC]);
-  SiMain.LogInteger('PC-After', Registers[CRegPC]);
 end;
 
 procedure TD16Operation.SbxValue(var ALeft, ARight: Word);
