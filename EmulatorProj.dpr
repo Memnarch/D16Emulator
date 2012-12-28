@@ -13,7 +13,8 @@ uses
   TaskThread in 'TaskThread.pas',
   GenericClock in 'GenericClock.pas',
   GenericKeyboard in 'GenericKeyboard.pas',
-  Floppy in 'Floppy.pas';
+  Floppy in 'Floppy.pas',
+  VectorDisplay in 'VectorDisplay.pas';
 
 {$R *.res}
 

@@ -106,7 +106,7 @@ const
 implementation
 
 uses
-  DateUtils, D16Operations, LEM1802, GenericKeyboard, GenericClock, Floppy;
+  DateUtils, D16Operations, LEM1802, GenericKeyboard, GenericClock, Floppy, VectorDisplay;
 
 { TD16Emulator }
 
@@ -486,6 +486,7 @@ begin
   RegisterDevice(TGenericKeyboard.Create(@FRegisters, @FRam));
   RegisterDevice(TGenericClock.Create(@FRegisters, @FRam));
   RegisterDevice(TFloppy.Create(@FRegisters, @FRam));
+  RegisterDevice(TVectorDisplay.Create(@FRegisters, @FRam));
 end;
 
 procedure TD16Emulator.InternalOnAlert;
