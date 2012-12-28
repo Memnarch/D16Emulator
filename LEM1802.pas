@@ -34,9 +34,11 @@ type
     FCurrentFont: PByteFont;
     FTestChar: DWord;
     FBorderColorIndex: Byte;
+    FBlinkOn: Boolean;
+    FBlinkTimer: Byte;
     procedure RenderScreen(Sender: TObject);
     procedure RenderText();
-    procedure DrawChar(AScreenX, AScreenY, ACharIndex: Integer; AFGColor, ABGColor: Byte);
+    procedure DrawChar(AScreenX, AScreenY, ACharIndex: Integer; ACanBlink: Boolean; AFGColor, ABGColor: Byte);
     procedure InitDefaultColors();
     procedure DrawByteChar(ACanvas: TCanvas; AChar: DWord; AX, AY: Integer);
     procedure ConvertFontToChars();
@@ -48,6 +50,7 @@ type
     constructor Create(ARegisters:PD16RegisterMem; ARam: PD16Ram);
     destructor Destroy(); override;
     procedure Interrupt(); override;
+    procedure UpdateDevice(); override;
   end;
 
 implementation
@@ -96,6 +99,7 @@ begin
   FHardwareID := $7349f615;
   FHardwareVerion := $1802;
   FManufactorID := $1c6c8b36;//NYA_ELEKTRISKA
+  FNeedsUpdate := True;
   FScreenAddr := 0;
   InitDefaultColors();
   FBuffer := TBitmap.Create();
@@ -162,14 +166,22 @@ begin
   end;
 end;
 
-procedure TLEM1802.DrawChar(AScreenX, AScreenY, ACharIndex: Integer; AFGColor, ABGColor: Byte);
+procedure TLEM1802.DrawChar(AScreenX, AScreenY, ACharIndex: Integer; ACanBlink: Boolean; AFGColor, ABGColor: Byte);
 begin
-  FRectMap.Canvas.Brush.Color := PaletToTColor(FCurrentColors[AFGColor]);
-  FRectMap.Canvas.FillRect(FRectMap.Canvas.ClipRect);
-  DrawByteChar(FChar.Canvas, FCurrentFont[ACharIndex], 0, 0);
-  FBuffer.Canvas.Brush.Color := PaletToTColor(FCurrentColors[ABGColor]);
-  FBuffer.Canvas.FillRect(Rect(AScreenX, AScreenY, AScreenX+4, AScreenY+8));
-  MaskBlt(FBuffer.Canvas.Handle, AScreenX, AScreenY, 4, 8, FRectMap.Canvas.Handle, 0,0, FChar.Handle, 0, 0, MakeROP4(SRCCOPY, DSTCOPY));
+  if (not ACanBlink) or FBlinkOn then
+  begin
+    FRectMap.Canvas.Brush.Color := PaletToTColor(FCurrentColors[AFGColor]);
+    FRectMap.Canvas.FillRect(FRectMap.Canvas.ClipRect);
+    DrawByteChar(FChar.Canvas, FCurrentFont[ACharIndex], 0, 0);
+    FBuffer.Canvas.Brush.Color := PaletToTColor(FCurrentColors[ABGColor]);
+    FBuffer.Canvas.FillRect(Rect(AScreenX, AScreenY, AScreenX+4, AScreenY+8));
+    MaskBlt(FBuffer.Canvas.Handle, AScreenX, AScreenY, 4, 8, FRectMap.Canvas.Handle, 0,0, FChar.Handle, 0, 0, MakeROP4(SRCCOPY, DSTCOPY));
+  end
+  else
+  begin
+    FBuffer.Canvas.Brush.Color := PaletToTColor(FCurrentColors[ABGColor]);
+    FBuffer.Canvas.FillRect(Rect(AScreenX, AScreenY, AScreenX+4, AScreenY+8));
+  end;
 end;
 
 function TLEM1802.GraphicToChar(ACanvas: TCanvas; AX, AY: Integer): DWord;
@@ -333,7 +345,8 @@ begin
     for k := 0 to 31 do
     begin
       LLeter := FRam[LAddr] and $7f; // get the lower 7 bits
-      DrawChar(k*4 + 4, i*8 + 4, LLeter, (FRam[LAddr] shr 12) and $f, (FRam[LAddr] shr 8) and $f);
+      DrawChar(k*4 + 4, i*8 + 4, LLeter, (FRam[LAddr] and $80) = $80,
+        (FRam[LAddr] shr 12) and $f, (FRam[LAddr] shr 8) and $f);
       Inc(LAddr);
     end;
   end;
@@ -345,6 +358,16 @@ begin
   Result := Result or ((R and $F) shl 8);
   Result := Result or ((G and $F) shl 4);
   Result := Result or (B and $F);
+end;
+
+procedure TLEM1802.UpdateDevice;
+begin
+  Inc(FBlinkTimer);
+  if FBlinkTimer = 30 then
+  begin
+    FBlinkOn := not FBlinkOn;
+    FBlinkTimer := 0;
+  end;
 end;
 
 end.
