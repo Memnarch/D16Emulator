@@ -263,7 +263,7 @@ begin
       end
       else
       begin
-        if FRegisters[CRegB] <= SizeOf(TD16Ram) - SizeOf(TByteFont) then
+        if FRegisters[CRegB] <= (SizeOf(TD16Ram) - SizeOf(TByteFont)) then
         begin
           FCurrentFont := Pointer(Integer(@FRam[0]) + FRegisters[CRegB]*2);
         end
@@ -282,7 +282,7 @@ begin
       end
       else
       begin
-        if FRegisters[CRegB] <= SizeOf(TD16Ram) - SizeOf(TColorPalet) then
+        if FRegisters[CRegB] <= (SizeOf(TD16Ram) - SizeOf(TColorPalet)) then
         begin
           FCurrentColors := Pointer(Integer(@FRam[0]) + FRegisters[CRegB]*2);
         end
