@@ -33,15 +33,18 @@ type
     FMoveMatrix: TMatrixClass4D;
     FViewMatrix: TMatrixClass4D;
     FRotation: Integer;
+    FRotationGoal: Word;
     procedure RenderScreen(Sender: TObject);
     procedure DrawBuffer();
     procedure DrawVertices();
     procedure CopyVertices();
     procedure TransformVertices();
+    procedure RecalculateMatrices();
   public
     constructor Create(ARegisters:PD16RegisterMem; ARam: PD16Ram);
     destructor Destroy(); override;
     procedure Interrupt(); override;
+    procedure UpdateDevice(); override;
   end;
 
 const
@@ -78,10 +81,10 @@ var
   i: Integer;
 begin
   inherited;
-  FRotation := 30;
   FHardwareID := $42babf3c;
   FHardwareVerion := $0003;
   FManufactorID := $1eb37e91;
+  FNeedsUpdate := True;
   FBuffer := TBitmap.Create();
   FBuffer.PixelFormat := pf32bit;
   FBuffer.SetSize(512, 512);
@@ -94,6 +97,8 @@ begin
   FMonitor.Show;
   FState := STATE_NO_DATA;
   FError := ERROR_NONE;
+  FRotation := 0;//90;
+  FRotationGoal := 0;//90;
 
   FProjectionMatrix := TMatrixClass4D.Create();
   FMoveMatrix := TMatrixClass4D.Create();
@@ -103,25 +108,7 @@ begin
   FWorldMatrix := TMatrixClass4D.Create();
   FViewMatrix := TMatrixClass4D.Create();
 
-  FViewMatrix.SetAsMoveMatrix(0, 0, 400);
-  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
-  FRotateYMatrix.SetAsRotationYMatrix(DegToRad(90));
-  FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
-  FViewMatrix.MultiplyMatrix4D(FRotateXMatrix);
-  FViewMatrix.MultiplyMatrix4D(FRotateYMatrix);
-  FViewMatrix.MultiplyMatrix4D(FRotateZMatrix);
-
-  FMoveMatrix.SetAsMoveMatrix(0, 0, 0);
-  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
-  FRotateYMatrix.SetAsRotationYMatrix(DegToRad(0));
-  FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
-  FWorldMatrix.CopyFromMatrix4D(FMoveMatrix);
-  FWorldMatrix.MultiplyMatrix4D(FRotateXMatrix);
-  FWorldMatrix.MultiplyMatrix4D(FRotateYMatrix);
-  FWorldMatrix.MultiplyMatrix4D(FRotateZMatrix);
-  FWorldMatrix.MultiplyMatrix4D(FViewMatrix);
-  FProjectionMatrix.SetAsPerspectiveProjectionMatrix(100, 200, 64, 64);
-  FProjectionMatrix.MultiplyMatrix4D(FWorldMatrix);
+  RecalculateMatrices();
 
   for i := 0 to High(F4DVertices) do
   begin
@@ -197,7 +184,35 @@ begin
       FVertices := Pointer(Integer(@FRam[0]) + FRegisters[CRegX]*2);
       FVerticesToRender := FRegisters[CRegY];
     end;
+
+    2:
+    begin
+      FRotationGoal := FRegisters[CRegX] mod 360;
+    end;
   end;
+end;
+
+procedure TVectorDisplay.RecalculateMatrices;
+begin
+  FViewMatrix.SetAsMoveMatrix(0, 0, 400);
+  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
+  FRotateYMatrix.SetAsRotationYMatrix(DegToRad(FRotation));
+  FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
+  FViewMatrix.MultiplyMatrix4D(FRotateXMatrix);
+  FViewMatrix.MultiplyMatrix4D(FRotateYMatrix);
+  FViewMatrix.MultiplyMatrix4D(FRotateZMatrix);
+
+  FMoveMatrix.SetAsMoveMatrix(0, 0, 0);
+  FRotateXMatrix.SetAsRotationXMatrix(DegToRad(0));
+  FRotateYMatrix.SetAsRotationYMatrix(DegToRad(0));
+  FRotateZMatrix.SetAsRotationZMatrix(DegToRad(0));
+  FWorldMatrix.CopyFromMatrix4D(FMoveMatrix);
+  FWorldMatrix.MultiplyMatrix4D(FRotateXMatrix);
+  FWorldMatrix.MultiplyMatrix4D(FRotateYMatrix);
+  FWorldMatrix.MultiplyMatrix4D(FRotateZMatrix);
+  FWorldMatrix.MultiplyMatrix4D(FViewMatrix);
+  FProjectionMatrix.SetAsPerspectiveProjectionMatrix(100, 200, 64, 64);
+  FProjectionMatrix.MultiplyMatrix4D(FWorldMatrix);
 end;
 
 procedure TVectorDisplay.RenderScreen(Sender: TObject);
@@ -217,6 +232,62 @@ begin
     //denormalize to screenpos
     F4DVertices[i].X := (1-F4DVertices[i].X) * 256;
     F4DVertices[i].Y := (1-F4DVertices[i].Y) * 256;
+  end;
+end;
+
+//thanks to Aphton from http://www.delphipraxis.net for writing this function
+function GetShortestRotation(const AngleA, AngleB: Integer): Integer;
+var
+  Small, Big: Integer;
+begin // Parameter in [0..360]
+  if AngleA < AngleB then
+  begin
+    Small := AngleA;
+    Big := AngleB;
+  end
+  else
+  begin
+    if AngleA > AngleB then
+    begin
+      Small := AngleB;
+      Big := AngleA;
+    end
+    else
+    begin
+      Exit(0);
+    end;
+  end;
+  Result := (360-Big) + Small;
+  if Result > Big - Small then
+  begin
+    Result := (Big - Small);
+  end;
+  if (AngleA + Result) mod 360 <> AngleB then
+  begin
+    Result := -Result;
+  end;
+end;
+
+procedure TVectorDisplay.UpdateDevice;
+begin
+  if FRotationGoal <> FRotation then
+  begin
+    if GetShortestRotation(FRotation, FRotationGoal) < 0 then
+    begin
+      if FRotation > 0 then
+      begin
+        FRotation := Abs((FRotation - 1) mod 360);
+      end
+      else
+      begin
+        FRotation := 359;
+      end;
+    end
+    else
+    begin
+      FRotation := Abs((FRotation + 1) mod 360);
+    end;
+    RecalculateMatrices();
   end;
 end;
 
