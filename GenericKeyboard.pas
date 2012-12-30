@@ -12,9 +12,11 @@ type
   private
     FKeyBuffer: TList;
     FKeyList: TDynByteArray;
-    FInterruptAddress: Word;
+    FKeyChangeList: TDynByteArray;
+    FInterruptMessage: Word;
     FKeyStates: TKeyboardState;
     FOldKeyStates: TKeyboardState;
+    procedure ScanForChanges();
     function IsVKPressed(AVK: Byte): Boolean;
     function IsKeyDown(ACode: Word): Word;
     procedure InitKeys();
@@ -52,6 +54,10 @@ begin
   FKeyList := ListToArray([$31, $32, $33, $34, $35, $36, $37, $38, $39, $30, $DB, $51, $57, $45, $52, $54, $5A, $55, $49, $4F,
     $50, $BA, $BB, $41, $53, $44, $46, $47, $48, $4A, $4B, $4C, $C0, $DE, $BF, $E2, $59, $58, $43, $56, $42,
     $4E, $4D, $BC, $BE, $BD, $20]);
+  FKeyChangeList := ListToArray([$31, $32, $33, $34, $35, $36, $37, $38, $39, $30, $DB, $51, $57, $45, $52, $54, $5A, $55, $49, $4F,
+    $50, $BA, $BB, $41, $53, $44, $46, $47, $48, $4A, $4B, $4C, $C0, $DE, $BF, $E2, $59, $58, $43, $56, $42,
+    $4E, $4D, $BC, $BE, $BD, $20, VK_BACK, VK_RETURN, VK_INSERT, VK_DELETE, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT,
+    VK_SHIFT, VK_CONTROL]);
 end;
 
 procedure TGenericKeyboard.Interrupt;
@@ -80,7 +86,7 @@ begin
     end;
     3:
     begin
-      FInterruptAddress := FRegisters[CRegB];
+      FInterruptMessage := FRegisters[CRegB];
     end;
   end;
 end;
@@ -189,12 +195,35 @@ begin
   end;
 end;
 
+procedure TGenericKeyboard.ScanForChanges;
+var
+  LFireInterrupt: Boolean;
+  i: Integer;
+begin
+  if FInterruptMessage > 0 then
+  begin
+    LFireInterrupt := False;
+    for i := 0 to High(FKeyChangeList) do
+    begin
+      LFireInterrupt := LFireInterrupt or (FKeyStates[FKeyChangeList[i]] <> FOldKeyStates[FKeyChangeList[i]]);
+      if LFireInterrupt then
+      begin
+        Break;
+      end;
+    end;
+
+    if LFireInterrupt then
+    begin
+      SoftwareInterrupt(FInterruptMessage);
+    end;
+  end;
+end;
+
 procedure TGenericKeyboard.UpdateDevice;
 var
   i: Integer;
   LChars: string;
 begin
-  inherited;
   FOldKeyStates := FKeyStates;
   GetKeyState(0);//triger windows internal keyboardstate update
   LChars := '  ';
@@ -261,6 +290,7 @@ begin
     begin
       FKeyBuffer.Add(Pointer($91));
     end;
+    ScanForChanges();//this scans for changes like key released and fires an interrupt if required
   end;
 end;
 
