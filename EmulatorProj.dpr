@@ -14,7 +14,8 @@ uses
   GenericClock in 'GenericClock.pas',
   GenericKeyboard in 'GenericKeyboard.pas',
   Floppy in 'Floppy.pas',
-  VectorDisplay in 'VectorDisplay.pas';
+  VectorDisplay in 'VectorDisplay.pas',
+  EmulatorVersion in 'EmulatorVersion.pas';
 
 {$R *.res}
 
