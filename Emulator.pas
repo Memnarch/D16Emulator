@@ -478,6 +478,7 @@ begin
   FOperations.Push := Push;
   FOperations.Pop := Pop;
   FOperations.SoftwareInterrupt := QueueInterrupt;
+  FUseLogging := False;
   InitBaseDevices();
 end;
 
