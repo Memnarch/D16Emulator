@@ -311,6 +311,7 @@ begin
   ProcessDeviceUpdates();
   ProcessInterruptQueue();
   DoOnStep();
+  FLastAlertAddress := -1;//reset so this breakpoint can be reused immediately next time
 end;
 
 procedure TD16Emulator.Execute;
