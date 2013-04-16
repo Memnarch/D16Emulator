@@ -94,7 +94,6 @@ begin
   FMonitor.ClientHeight := FBuffer.Height;
   FMonitor.Screen.OnPaint := RenderScreen;
   FMonitor.Caption := '3D VectorDisplay';
-  FMonitor.Show;
   FState := STATE_NO_DATA;
   FError := ERROR_NONE;
   FRotation := 0;//90;
@@ -183,6 +182,14 @@ begin
     begin
       FVertices := Pointer(Integer(@FRam[0]) + FRegisters[CRegX]*2);
       FVerticesToRender := FRegisters[CRegY];
+      if (FRegisters[CRegX] > 0) or (FRegisters[CRegY] > 0) then
+      begin
+        FMonitor.Show();
+      end
+      else
+      begin
+        FMonitor.Hide;
+      end;
     end;
 
     2:
