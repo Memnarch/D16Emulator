@@ -277,17 +277,17 @@ begin
   RegisterOperation($1f, 2, StdValue, 'Std');
 
   //non basic operations. Lower 5 bits are always 0
-  RegisterOperation($1 shl 5, 3, JSR, 'Jsr');
+  RegisterOperation($1 shl 5, 3, JSR, 'Jsr', True);
 
-  RegisterOperation($8 shl 5, 4, INT, 'Int');
-  RegisterOperation($9 shl 5, 1, GetIA, 'IAS');
+  RegisterOperation($8 shl 5, 4, INT, 'Int', True);
+  RegisterOperation($9 shl 5, 1, GetIA, 'IAG', True);
   RegisterOperation($a shl 5, 1, SetIA, 'IAS');
   RegisterOperation($b shl 5, 3, RFI, 'RFI');
-  RegisterOperation($c shl 5, 2, IAQ, 'IAQ');
+  RegisterOperation($c shl 5, 2, IAQ, 'IAQ', True);
 
   RegisterOperation($10 shl 5, 2, HWN, 'HWN');
-  RegisterOperation($11 shl 5, 4, HWQ, 'HW', True);
-  RegisterOperation($12 shl 5, 4, HWI, 'HWI');
+  RegisterOperation($11 shl 5, 4, HWQ, 'HWQ', True);
+  RegisterOperation($12 shl 5, 4, HWI, 'HWI', True);
 end;
 
 procedure TD16Operation.INT(var ALeft, ARight: Word);
